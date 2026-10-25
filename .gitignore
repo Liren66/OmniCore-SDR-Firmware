@@ -13,14 +13,17 @@
 *.backup.*
 xelab.pb
 
-# Block design output products (regenerated from system.bd; keep system.bd,
-# ui/ and hdl/system_wrapper.v)
-OmniCore-SDR-Firmware.srcs/sources_1/bd/*/ip/
+# Block design output products. Keep system.bd, system.bxml, ui/,
+# hdl/system_wrapper.v and every IP .xci: without the .xci files and
+# system.bxml, Vivado re-migrates the IPs from system.bd and loses the clock
+# association of the axi_cpu_interconnect crossbar (CRITICAL WARNING BD 41-967).
+OmniCore-SDR-Firmware.srcs/sources_1/bd/*/ip/**
+!OmniCore-SDR-Firmware.srcs/sources_1/bd/*/ip/**/
+!OmniCore-SDR-Firmware.srcs/sources_1/bd/*/ip/**/*.xci
 OmniCore-SDR-Firmware.srcs/sources_1/bd/*/ipshared/
 OmniCore-SDR-Firmware.srcs/sources_1/bd/*/sim/
 OmniCore-SDR-Firmware.srcs/sources_1/bd/*/synth/
 OmniCore-SDR-Firmware.srcs/sources_1/bd/*/hw_handoff/
-OmniCore-SDR-Firmware.srcs/sources_1/bd/*/*.bxml
 OmniCore-SDR-Firmware.srcs/sources_1/bd/*/*_ooc.xdc
 
 # ---------------------------------------------------------------------------
