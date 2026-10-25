@@ -45,6 +45,8 @@ OmniCore-SDR-Firmware.sdk/webtalk/
 OmniCore-SDR-Firmware.sdk/*/Debug/
 OmniCore-SDR-Firmware.sdk/*/Release/
 OmniCore-SDR-Firmware.sdk/*_hw_platform_*/cache/
-OmniCore-SDR-Firmware.sdk/*_bsp/ps7_cortexa9_0/lib/
+# BSP archive output; the (empty) lib/ directory itself must exist for make
+OmniCore-SDR-Firmware.sdk/*_bsp/ps7_cortexa9_0/lib/*
+!OmniCore-SDR-Firmware.sdk/*_bsp/ps7_cortexa9_0/lib/.gitkeep
 *.o
 BOOT.bin
