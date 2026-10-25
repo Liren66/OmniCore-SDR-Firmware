@@ -1,0 +1,38 @@
+AXI AD9361 PPS 修复发布说明
+发布日期：2026-10-24
+工具：Vivado 2018.3
+IP：analog.com:user:axi_ad9361:1.0，Core Revision 2
+
+修改内容
+1. common/ad_pps_receiver.v 对跨时钟域事件翻转标志使用 XOR 检测。
+   每个 PPS 上升沿均产生一个 IRQ，修复原逻辑隔次漏中断的问题。
+2. gps_pps_irq 接口 SENSITIVITY 标注为 EDGE_RISING，与单周期脉冲一致。
+3. 发布修订号从 1 更新为 2；更新打包脚本，保留后续重新打包时的修复元数据。
+   端口、参数默认值及寄存器映射不变；PPS_RECEIVER_ENABLE 的默认值仍为 0。
+   现有工程配置的 PPS_RECEIVER_ENABLE=1 会在更新 IP 后保留。
+
+用户工程更新步骤
+1. 在 Vivado 中刷新 IP Catalog；必要时在 Tcl Console 执行 update_ip_catalog -rebuild。
+2. 打开 Report IP Status，选择 system_axi_ad9361_0，执行 Upgrade Selected。
+   应显示从 1.0 (Rev. 1) 更新为 1.0 (Rev. 2)，完成后状态为 Up-to-date。
+3. 打开 Block Design，确认 PPS_RECEIVER_ENABLE=1，以及 gps_pps_irq 到 In0 的连线。
+4. Validate Design，生成 Output Products，然后自行综合、实现并生成 bitstream。
+5. 导出包含新 bitstream 的硬件并更新 SDK 硬件平台/BSP。
+
+验证结果
+- 原源码仿真复现：第二个 PPS 未产生 IRQ。
+- 修复后：4 组时钟比例/相位下 84 个输入脉冲通过，其中 72 个未屏蔽事件均产生单周期 IRQ。
+- 覆盖连续事件、屏蔽期间计数、解除屏蔽不补发、长高电平、下降沿不误触发和双域复位。
+- 使用加速的 PPS 序列验证控制逻辑，没有模拟完整 1 秒间隔或测量实板 PPS 精度。
+- Vivado IP 完整性检查通过，保留旧包既有的器件族/时钟接口/绝对路径警告。
+- 在独立临时工程中验证修订号升级和 Output Products 生成成功。
+  PPS 使能、ADC_INIT_DELAY=20、DDS 位宽 14、DDS 类型 1 均保留。
+
+范围
+本次仅发布本地 ADI 源码 IP。用户工程的 BD、XDC、XCI、生成副本及 bitstream 未替换。
+CH32H417 工程未修改；SDK 和 OCH 的 PPS 命令仍需后续实现。
+SDK 应使用现有共享 GIC 配置 PPS 边沿中断，并解除 RX/TX 两侧 PPS IRQ 屏蔽。
+输入电平仍须与实板 Bank 供电相符；本次不改变 I/O 约束或板上电压。
+
+备份、仿真、升级验证和日志均保存在工作区根目录：
+_pps_ip_release_20261024

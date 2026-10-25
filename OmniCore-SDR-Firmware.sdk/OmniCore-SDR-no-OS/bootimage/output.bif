@@ -1,0 +1,7 @@
+//arch = zynq; split = false; format = BIN
+the_ROM_image:
+{
+    [bootloader] "C:/Users/ABC20/Desktop/AD9361_TEST/OmniCore-SDR-Firmware/OmniCore-SDR-Firmware.sdk/OmniCore-SDR-FSBL/Debug/OmniCore-SDR-FSBL.elf"
+    "C:/Users/ABC20/Desktop/AD9361_TEST/OmniCore-SDR-Firmware/OmniCore-SDR-Firmware.sdk/system_wrapper_hw_platform_0/system_wrapper.bit"
+    "C:/Users/ABC20/Desktop/AD9361_TEST/OmniCore-SDR-Firmware/OmniCore-SDR-Firmware.sdk/OmniCore-SDR-no-OS/Debug/OmniCore-SDR-no-OS.elf"
+}

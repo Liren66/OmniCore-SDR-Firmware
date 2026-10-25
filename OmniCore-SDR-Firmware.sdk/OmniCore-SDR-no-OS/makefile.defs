@@ -1,0 +1,92 @@
+# Support command-line builds before SDK regenerates its managed source list.
+# Once SDK discovers the source, do not add a duplicate object.
+ifeq ($(filter %/ch32h417_irq.o,$(OBJS)),)
+OBJS += ./src/platform_xilinx/ch32h417_irq.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/platform_xilinx/ch32h417_irq.d
+endif
+
+ifeq ($(filter %/pps_monitor.o,$(OBJS)),)
+OBJS += ./src/platform_xilinx/pps_monitor.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/platform_xilinx/pps_monitor.d
+endif
+
+ifeq ($(filter %/board_config.o,$(OBJS)),)
+OBJS += ./src/board_config.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/board_config.d
+endif
+
+ifeq ($(filter %/sdr_commands.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_commands.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_commands.d
+endif
+
+ifeq ($(filter %/sdr_fir.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_fir.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_fir.d
+endif
+
+ifeq ($(filter %/sdr_clock.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_clock.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_clock.d
+endif
+
+ifeq ($(filter %/sdr_correction.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_correction.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_correction.d
+endif
+
+ifeq ($(filter %/sdr_reference.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_reference.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_reference.d
+endif
+
+ifeq ($(filter %/sdr_external_lo.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_external_lo.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_external_lo.d
+endif
+
+ifeq ($(filter %/sdr_pps.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_pps.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_pps.d
+endif
+
+ifeq ($(filter %/board_monitor.o,$(OBJS)),)
+OBJS += ./src/platform_xilinx/board_monitor.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/platform_xilinx/board_monitor.d
+endif
+
+ifeq ($(filter %/sdr_board.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_board.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_board.d
+endif
+
+ifeq ($(filter %/sdr_iq_format.o,$(OBJS)),)
+OBJS += ./src/console_commands/sdr_iq_format.o
+endif
+ifneq ($(MAKECMDGOALS),clean)
+-include ./src/console_commands/sdr_iq_format.d
+endif

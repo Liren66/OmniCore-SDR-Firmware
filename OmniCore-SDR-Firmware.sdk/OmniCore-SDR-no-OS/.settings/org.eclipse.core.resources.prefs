@@ -1,0 +1,4 @@
+eclipse.preferences.version=1
+encoding//src/board_config.c=UTF-8
+encoding//src/console_commands/sdr_control.c=UTF-8
+encoding//src/platform_xilinx/parameters.h=UTF-8

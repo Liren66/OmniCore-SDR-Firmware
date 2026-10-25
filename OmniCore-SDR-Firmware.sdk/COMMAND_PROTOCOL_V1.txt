@@ -1,0 +1,265 @@
+OmniCore SDR SDK 命令协议 1.0（2026-10-24）
+
+依据：AD9361_SDR_命令清单与命名规范_v1.0.pdf。
+本次用户要求优先：发生传输溢出时保持收发，ZYNQ 后台清错并向上位机发 EVT。
+本文记录命令协议及历次扩展；当前 SDK 同步支持 OmniCoreHost 0.4.0。
+IQ8 扩展使用 CH32H417_IP 1.1 / revision 10 和对应 BSP 驱动；CH32/UHSIF 固件未修改。
+
+1. 命令与默认状态
+命令小写；? 查询、= 设置、! 动作；参数用空格分隔，以 LF 结束。
+每条等待返回后再发送下一条，不要连续灌入大量命令（当前为 3125000 波特率轮询串口，须与 CH32 UART1_BRIDGE_BAUD 一致；console.h CONSOLE_BAUD_RATE）。
+启动默认：rx_channel=0、tx_channel=0、tx_source=0、tx_enable=0、usb_data_en=0 0。
+TX 关闭实际设置 DAC DATA_SEL_ZERO，AD9361 衰减为最大值；不是只改软件变量。
+衰减查询返回目标值；停止时仍保留用户目标，不把 89750 mdB 当成新目标。
+
+新增：
+rx_channel? / = mask             0=关闭上传；1=RX1；2=RX2；3=双通道
+tx_channel? / = mask            0=停止发射；1=TX1；2=TX2；3=双通道
+tx_source? / = source            0=DDS；1=USB；只选源，不启动
+tx_enable? / = enabled          0=停止并关闭 USB TX；1=显式启动
+usb_data_en? / = rx_en tx_en      各为 0/1；TX 方向只做接收/预填，不单独启动发射
+iq_format? / = 8|12              USB IQ 有效位数，默认12；8仅允许2TX2RX且TX源为USB
+clock_chain?                    参考时钟、RX/TX 各六级时钟，单位 Hz
+rx_fir_config? / = 0             现有 64 taps 带通示例，gain=0 dB，decimation=1
+tx_fir_config? / = 0            现有 64 taps 带通示例，gain=-6 dB，interpolation=1
+rx_dc_correction? / = 0|1       同时关闭/开启 AD9361 RX RF DC 和 BB DC 连续跟踪校正
+rx_iq_correction? / = 0|1       关闭/开启 AD9361 RX 正交（幅度/相位 IQ）连续跟踪校正
+system_info?                    固件/协议版本、能力、IQ 格式、测试头格式
+rssi_enable? / = 0|1             RX RSSI 上报开关，冷启动默认 0，需手动开启
+rx_rssi?                        RX1/RX2 symbol RSSI（相对 dB，越大越强，非校准功率）；需 rssi_enable=1 且 ENSM 为 RX/FDD；rx_channel 只影响 USB 上传，不影响 RSSI
+system_status?                  初始化、通道、源、TX 门控、USB 状态、温度/RSSI、故障记录
+rf_reinit!                      关闭收发后重建 RF/数字接口，恢复当前有效目标，最终保持关闭
+digital_self_test!              关闭收发后做 RX PRBS 和 TX 数字回环；结束保持关闭，不改延迟
+clock_ref_source? / = 0|1        0=内部40 MHz自由运行；1=ADF4002用外部10 MHz驯服40 MHz
+adf4002_status?                 ADF4002配置、GPIO检查及不可读的锁定/LED状态
+adf4002_self_test!              CP高阻，写MUXOUT高低电平使D5亮灭三次，结束恢复原配置
+rx_lo_source? / = 0|1           0=内部RX LO；1=外部RX LO（J11），作用于全部RX
+tx_lo_source? / = 0|1           0=内部TX LO；1=外部TX LO（J10），作用于全部TX
+pps_input_en? / = 0|1            PPS 频率监控开关，默认关闭；状态用 pps_status?
+
+原有 LO、采样率、带宽、增益、FIR 开关、DDS 命令保留原名和单位。
+LO 单位 MHz，支持小数；查询为硬件可实现值，有分数 PLL 量化误差。
+外部 LO 模式下频率仅是名义值，不会调节或测量外部信号源；外部输入频率须为该值的2倍。
+采样率/带宽单位 Hz；TX 衰减单位 mdB，0..89750，步进 250。
+DDS 相位单位度，支持小数；幅度单位百万分之一，250000=0.25。
+修改采样率或 FIR 必须 TX 和双向 USB 全部关闭。
+修改 RX DC/IQ 校正也必须 TX 和双向 USB 全部关闭；运行中允许查询。
+参考源、LO来源切换及ADF4002自检也要求停止TX和双向USB；切换期间丢样属于正常行为。
+改 RX 通道需先停上传；改 TX 通道/数据源需先停 TX 和 USB TX；设通道 0 可直接停止。
+DDS 更新不会自行开启输出；若降采样率后原 DDS 频率超出 Nyquist，启动会被拒绝。
+
+2. 桥接调试入口
+usb_config? / = bits             CTRL0 0..255；bit7为IQ8，受同一通道/格式/TX状态检查保护
+usb_rx= enable dual channel1     原三个布尔位；channel1=1 表示第二路
+usb_tx= enable dual channel1 run 原四个布尔位；run 不能绕过显式 tx_enable=1
+usb_status?                     原始状态、FIFO 组数、stream、历史计数
+usb_irq?                        中断状态、累计观测、清错/重试/超时、event_dropped
+usb_clear!                      请求异步清锁存；不清 FIFO、累计计数或历史
+usb_stop!                       停止双向 USB；USB 源发射先静默，不自动切回 DDS
+原 ch32_* 名字作为兼容别名，遵守完全相同的检查，返回统一 usb_* 字段。
+USB 速度与实际载荷字节率没有 MCU 计数接口，因此 SDK 返回 unknown。
+expected_*_Bps 是采样率×每样本字节数计算值，不冒充实测 USB 吞吐。
+
+3. 只接收双通道
+ tx_enable=0
+ usb_data_en=0 0
+ rx_channel=3
+ rx_samp_freq=61440000
+ [上位机先提交 USB EP81 接收请求]
+ usb_data_en=1 0
+
+4. TX1 DDS
+ tx_enable=0
+ tx_source=0
+ tx_channel=1
+ tx_lo_freq=1000
+ tx1_attenuation=10000
+ dds_tx1_tone1_freq=1000000
+ dds_tx1_tone1_scale=250000
+ dds_tx1_tone2_scale=0
+ tx_enable=1
+
+5. USB 双通道 TX
+ tx_enable=0
+ usb_data_en=0 0
+ tx_source=1
+ tx_channel=3
+ tx_samp_freq=61440000
+ usb_data_en=0 1
+ [上位机持续提交 EP01 数据；查询 usb_status? 确认预填]
+ tx_enable=1
+
+当前桥接构建的软件预填门槛：12bit单通道1350组、双通道2700组；IQ8双通道1536组。
+水位单位始终是原始96bit FIFO组；每组在线上为12bit模式12字节、IQ8模式8字节。
+这是使用现有FIFO的启动余量，FIFO宽度、深度、配置均未改变。
+未达到门槛则返回 ERR usb_tx_not_prefilled no_deferred_start，保持 TX 关闭。
+上位机继续填入后必须重新发送 tx_enable=1，不会延迟自动发射。
+USB TX 的四路 DAC 数据选择在 TX_RUN 之前完成，避免切换中途双通道 enable 不一致。
+停止 TX 不停止 RX，也不丢失通道、数据源、RF/FIR/DDS 目标。
+
+6. 异步故障与恢复
+例如：
+EVT seq=7 stream=5 type=rx_overflow mask=3 src=fpga count=2 lost=-1 action=waiting_rx_resync status=0x01950301 header_bytes=0
+EVT seq=8 stream=5 type=rx_overflow mask=3 src=fpga count=2 lost=-1 action=rx_restarted status=0x01950000 header_bytes=16384
+
+ISR 只屏蔽本中断源、保存状态和新增锁存原因；主循环执行 CTRL1 清错握手、检查状态并发整行 EVT。
+RX 溢出先上报 waiting_rx_resync，并继续清错。主机仍未排空时不反复重启。
+当 RX 错误清除并通过检查后，主循环仅关闭 RX_EN、等待 100 us，再开启 RX_EN。
+这样清空 FPGA RX FIFO、重置 IQ 拼接相位，并触发现有 IP 的完整 16 KiB 起始头。
+100 us 超过一个 4101 时钟的 UHSIF 读突发（133.333 MHz 下约 31 us），用于让已开始的读突发结束。
+旧突发尾部在关闭期间可能无效；旧 USB/CH32 缓冲不会被软件清空，必须在新头之前丢弃。
+保留 RX 用户请求和 stream 会话编号，不要求手动开启；TX_EN/TX_RUN/通道配置保持原硬件值。
+不执行全局复位、RF 重初始化、USB 端点重置，不改 CH32 固件。
+TX 欠流仍采用清错续传，action=recovered；TX 发生错误不阻止已清错的 RX 单独恢复。
+清除失败/时钟停止时按状态机超时和退避重试，不死循环；usb_irq? 可见 retry/timeout。
+首次故障立即排队；同类重复通知限流，累计观测保留。队列满计入 event_dropped。
+count 是软件能观察到的锁存事件次数，不是精确溢出次数；lost=-1 表示丢样数量未知。
+同一次锁存未清不重复计数；预填或关闭期间的欠载/配对过渡不归入新会话运行时故障。
+若清错期间用户已停止或换会话，返回 errors_cleared，并保留原故障的 stream/mask。
+EVT 走 EP82 命令回传通道，不混进 EP81 IQ 数据；上位机必须持续接收并解析 EVT。
+
+rx_restarted 只确认 FPGA RX 已重新使能并安排发送头，不代表主机已收到头，更不能补回丢失样本。
+配置握手失败上报 rx_restart_retry，并按 500 ms 间隔自动重试，绝不冒报恢复成功。
+usb_status? 增加 rx_resync completed/pending/failures；completed 为软件成功重新使能的累计次数。
+主机 USB 接收队列保持运行，跨 USB 请求拼接并匹配完整 16384 字节：00..FF 连续重复 64 次。
+应在整个 RX 字节流中持续检测头，不能等收到 EVT 后才从那一刻的数据开始寻找，因为两个端点没有到达顺序保证。
+不要只匹配 00 01 02 03 04，也不要用 EP82 的 EVT 到达时刻推断 EP81 中的数据位置。
+在溢出后重新同步时，丢弃新头之前的数据和旧的 IQ 解包残留；新头最后一个 FF 的下一字节作为新 IQ 起点。
+12bit模式单通道从这个起点按3字节解包，双通道按6字节；IQ8双通道按4字节。
+顺序重新从 I1/Q1 开始，不能把USB请求边界当作样本边界。
+头可能跨 USB 读取请求边界；应按连续字节流查找。若收到相邻连续测试头，应跳过完整测试区再开始 IQ。
+丢样数量仍为 unknown/lost=-1；自动恢复会额外丢弃 FPGA FIFO 中的旧采样。
+
+7. 数据格式
+默认有效数据为有符号二补码 12-bit packed IQ，每通道每时刻 3 字节。
+三个字节：I[11:4]、I[3:0]<<4 | Q[11:8]、Q[7:0]。
+双通道顺序 I1,Q1,I2,Q2，共 6 字节；单通道为所选 RX/TX 的 I,Q。
+16 KiB USB 块边界不一定对齐 6 字节样本，解包必须保留跨块余数。
+
+IQ8模式每个双通道时间帧为 I1[11:4]、Q1[11:4]、I2[11:4]、Q2[11:4]，共4字节。
+每字节为signed8；RX舍去12bit低4位，TX恢复时补低4位零，不四舍五入。
+AD9361数字接口仍为12bit；缩位发生在桥接IP的USB打包侧，四个FIFO保持原配置。
+16384字节起始头与检测/恢复协议不变，IQ8起始头后按4字节时间帧重新对齐。
+
+7.1 IQ8控制与能力检查
+实现入口：AD9361_TEST/src/console_commands/sdr_iq_format.c/.h；命令表在sdr_commands.c。
+system_info? 返回iq_format=1以及iq8_2t2r=0|1；后者来自PL能力位，不能仅凭可写CTRL0判断。
+iq_format=8要求rx_channel=3、tx_channel=3、tx_source=1；其他通道配置返回错误。
+限制的是通道配置，不要求两个USB方向时刻同时开启；保持2TX2RX配置时可分别启停两方向。
+修改格式前必须tx_enable=0、usb_data_en=0 0；切换会清空旧队列并丢样。
+正常冷启动或仅重新下载ELF，均默认12bit；旧PL明确拒绝8bit，继续使用12bit。
+典型停止状态选择：
+ tx_enable=0
+ usb_data_en=0 0
+ rx_channel=3
+ tx_channel=3
+ tx_source=1
+ iq_format=8
+ iq_format?
+查询必须核对requested=8、applied=8、cfg_busy=0、cfg_error=0、verified=1。
+OCH对应usb.iq-bits / --iq-bits 8；OCH会协调停止、通道配置、线格式和重启。
+只有8bit线格式可创建SC8流；SC16/FC32/packed12应用格式可由OCH转换。
+
+8. RF 重初始化和自检
+当前 BD 的 AD9361_RESET 实际接 FCLK_RESET0_N，并非旧 SDK 默认的 GPIO100。
+rf_reinit! 因而先停流、保存目标，再用 PS SLCR FPGA_RST_CTRL bit0 复位现有连接；
+同时重新初始化受复位影响的 PL UART。只复位现有逻辑，不重新编译/更换 FPGA bitstream，不操作 CH32 固件。
+这一全局复位只用于主动 RF 重初始化（以及应用启动），绝不用于普通溢出恢复。
+旧 no-OS 实例、时钟对象与私有分频数据全部释放，支持重复初始化，保留故障累计。
+失败给出 stage/code/applied，TX/USB 保持关闭，支持再次 rf_reinit!。
+重初始化之前主机应停止 USB 数据线程；结束后清理主机/MCU 旧数据再开新会话。
+数字自检检查当前采样率下的 RX PN9 和 TX custom-PN 回环，每子项 10 ms；不扫描或调整延迟。
+它不代替射频性能、天线链路、USB 吞吐或长时间 BER 测试。
+温度单位摄氏度；RSSI 是 AD9361 相对读数，不承诺校准后的输入 dBm。
+FPGA 整体版本没有版本寄存器，system_info? 明确返回 unknown。
+
+9. 构建与回退
+应用 ELF：AD9361_TEST/Debug/AD9361_TEST.elf。
+SDK 中正常 Build Project 会发现新增 sdr_control.c；Debug 命令行构建列表也已更新。
+已去掉 .cproject/Debug 构建脚本中指向旧 AD9361_Template 目录的 include 路径。
+原 SDK 备份、测试源程序和日志位于 AD9361_TEST/SDK_CommandV1_20261023。
+原始备份：SDK_CommandV1_20261023/sdk_before.zip。
+RX 溢出补头修正版及上版源码/ELF备份：SDK_RX_Header_Recovery_20261023。
+2026-10-23 的协议验证通过 JTAG 加载 ELF 到 RAM，没有写入启动 Flash。
+2026-10-24 校正扩展已重新生成 AD9361_TEST/bootimage/BOOT.bin（原 FSBL/bitstream + 新 ELF），仍仅 RAM 加载测试，未烧写 Flash。
+本次旧 ELF/BOOT 备份与测试日志位于工作区根目录 _correction_validation_20261024。
+
+10. RX DC / IQ 连续跟踪校正（2026-10-24）
+system_info? 的 capabilities 新增 rx_correction=1；旧固件没有该能力时主机应显示不支持。
+冷启动默认 rx_dc_correction=1、rx_iq_correction=1，作用于 AD9361 的全部启用 RX 通道。
+这两个命令调用 AD9361 原生 tracking 功能，不是上位机软件 DC 消除，不修改 TX 校准。
+依据 ADI UG-570，值 0 仅停止持续更新校正字，已有校正结果仍应用；不会清零校正字或旁路校正模块。
+参考：https://www.analog.com/media/en/technical-documentation/user-guides/AD9361_Reference_Manual_UG-570.pdf
+
+示例：
+ rx_dc_correction=0
+ rx_dc_correction=0 rfdc=0 bbdc=0 verified=1 scope=all_rx mode=tracking
+ rx_iq_correction?
+ rx_iq_correction=1 verified=1 scope=all_rx mode=tracking
+
+查询从 SPI 寄存器读取真实状态；返回标量 0/1，后续键值可忽略。
+DC 查询若 RFDC/BBDC 不一致，返回 ERR rx_dc_correction inconsistent ... applied=mixed；不会把混合状态显示为关闭。
+设置某一项会保留另一项以及当前 RFDC/BBDC 状态，写完校验五个 tracking 配置寄存器。
+运行中设置返回 ERR busy stop_tx_and_usb_before_rx_correction_change；上位机先停 TX/USB，完成后重建需要恢复的数据流。
+写入或校验失败尝试恢复原始寄存器；只有回滚读回一致才报告 rollback=verified applied=restored。
+回滚失败报告 rollback=failed applied=unknown use=rf_reinit!，将 RF 标记为未就绪并禁止重新启动数据流。
+最后一次成功的校正目标保留，rf_reinit! 恢复该目标；恢复失败会在 correction_restore 或 fir_restore 阶段报错。
+FIR、采样率和完整时钟链操作保留并检查校正状态；失败恢复也遵守原有事务回滚/停止策略。
+断电或重启 ELF 恢复默认全开，不做 Flash 持久化；无需改动 CH32H417 固件。
+
+11. ADF4002 外部参考与 RX/TX 外部 LO（2026-10-24）
+system_info? 新增 adf4002=1、ref_source=1、external_lo=1；固件标识 SDK_CMD_1.0_20261024_REF_LO。
+按 AD9361_MIX(3).pdf 第2/10页：ADF4002 CLK/DATA/CE/LE 接 MIO9/10/12/13。
+J3 的外部10 MHz送入ADF4002 REFIN；板载40 MHz VCTCXO回馈RFINA，R=1、N=4。
+clock_ref_source=1 启用驯服环路，不把AD9361参考改成10 MHz；AD9361两种模式均使用40 MHz。
+默认 clock_ref_source=0，CE低、调谐电荷泵高阻，板载40 MHz自由运行。
+正常外参考模式配置MUXOUT为数字锁定检测：锁定时D5由芯片直接点亮。
+注意J6虽印有10M_EXT，网络实际为PPS_EXT，真正外部10 MHz输入是J3。
+
+MUXOUT仅接R111/D5，无CPU回读连线；芯片也没有SPI读回接口。
+adf4002_status? 的 source/source_known 表示已成功输出的配置，gpio_verified仅是PS输入PAD电平检查。
+chip_verified=0、lock_known=0、locked=-1、led_known=0、led_on=-1始终如实报告不可测。
+led_mode=0表示关闭指示，1表示数字锁定指示模式，不代表实际LED电平。
+选源成功不会等待无法回读的锁定；接入外参考后应观察D5确认锁定，再进行稳定性要求较高的采集。
+last_error非0时来源不可确认；恢复需 clock_ref_source=0，随后 rf_reinit!，未恢复前禁止RF就绪。
+
+adf4002_self_test! 在电荷泵全程高阻下写MUXOUT高/低各500 ms，重复3次，再恢复原来源。
+返回 gpio_verified=1 chip_verified=0 visual_confirmation_required=1 不代表芯片通信已获确认。
+只有人工看到D5对应亮灭，或外接仪器测到MUXOUT，才能补充端到端通信证据。
+本次未接外部10 MHz，未进行闭环锁定、调谐极性、锁定时间或相位噪声测试。
+未接外参考时不要启用 clock_ref_source=1；通信自检不需要外参考输入。
+
+rx_lo_source / tx_lo_source 的0=内部、1=外部；各自作用于该方向全部物理通道，可独立选择。
+J11=RX外部LO，J10=TX外部LO；冷启动两者均内部。
+外部LO实际输入频率须是名义RF频率的2倍：RF 70 MHz..4 GHz对应输入140 MHz..8 GHz。
+rx_lo_freq/tx_lo_freq原命令仍以MHz为单位；外部模式仅声明外部信号频率，不能调节/测量发生器。
+源查询回复 frequency_hz（整数Hz）、verified=1（SPI寄存器一致）、signal_present=unverified。
+切回内部恢复该方向最后一次内部PLL频率，而非外部模式下写入的名义频率。
+跨频段恢复会换回增益表，超出目标频段的手动增益可能被夹限；OCH回读更新实际缓存。
+源切换失败先回滚并验证，失败则 applied=unknown，RF保持未就绪，需 rf_reinit!。
+rf_reinit! 保留已成功选择的LO源、外部名义频率及参考源；先在内部模式完成FIR校验，
+随后恢复外部源/对应增益表、用户增益和DDS；中途失败重试不覆盖最后有效外部频率。
+
+OCH 0.3.2 对应命令：
+ och get clock.ref-status
+ och action clock.ref-test
+ och set clock.ref-source internal
+ och set clock.ref-source external
+ och set rx.lo-source external
+ och set tx.lo-source external
+ och set rx.lo-source internal
+ och set tx.lo-source internal
+typed API切换会协调停流/重启，设置未变化时不重启；间断/新epoch属于切换正常丢样。
+本次临时源、日志、旧ELF/BOOT备份均在工作区根 _reference_validation_20261024。
+官方依据：
+ https://www.analog.com/media/en/technical-documentation/data-sheets/adf4002.pdf
+ https://www.analog.com/media/en/technical-documentation/user-guides/ad9361.pdf
+ https://analogdevicesinc.github.io/linux/drivers/iio-transceiver/ad9361/
+
+PPS 频率监控（2026-10-24）
+pps_input_en? / =0|1：默认关闭，只控制监控和两侧 IRQ 屏蔽，不改时钟/参考源。
+pps_status?：state=disabled/waiting/valid/no_signal/invalid_interval/clock_unavailable；frequency_valid=1 时 measured_hz 和 error_ppm 才有效。首次边沿忽略，连续两次 1Hz 边沿才测频；超过1.5秒无脉冲则失效。
+nominal_hz=4*Fs（当前2R2T LVDS DATA_CLK），不是40MHz参考的直接测量。measured_hz=raw_counter+1；无效为0、error_ppm=unknown。age_ms=4294967295 表示重新测量后尚无边沿。
+能力 pps_monitor=1，pps_adjustment=0；没有硬件时间戳/UTC/闭环调频。
+GIC使用物理IRQ_F2P[0]=61，与CH32的91共用已有GIC；不要使用当前BSP错误生成的PPS=91宏。
+OCH 0.3.3：get/set pps.input-enabled；get pps.status；C API och_set_pps_enabled/och_get_pps_status。
