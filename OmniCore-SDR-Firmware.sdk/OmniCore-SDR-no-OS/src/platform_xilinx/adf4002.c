@@ -12,6 +12,7 @@
  * The analog loop response still requires validation with a real reference.
  */
 #include "adf4002.h"
+#include "console.h"
 #include <errno.h>
 #include <string.h>
 #include "xgpiops.h"
@@ -56,6 +57,9 @@ static int32_t drive(unsigned pin, uint8_t level)
 {
     XGpioPs_WritePin(&gpio_instance, pin, level);
     usleep(1); /* >= 10 ns DATA setup/hold, 25 ns CLK high/low, 20 ns LE. */
+    /* A latch load takes ~1 ms; sdr_vcxo.c runs it from the idle loop while
+     * host commands may arrive. Keep the console UART FIFO drained. */
+    console_poll_rx();
     return XGpioPs_ReadPin(&gpio_instance, pin) == level ? 0 : -EIO;
 }
 

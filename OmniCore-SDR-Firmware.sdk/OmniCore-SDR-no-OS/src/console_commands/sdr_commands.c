@@ -7,6 +7,7 @@
 #include "sdr_reference.h"
 #include "sdr_external_lo.h"
 #include "sdr_pps.h"
+#include "sdr_vcxo.h"
 #include "sdr_board.h"
 #include "console.h"
 #include "ch32h417_ip.h"
@@ -88,16 +89,18 @@ static const SdrCommand commands[] = {
      "RX1/RX2 symbol RSSI in relative dB; not calibrated input power; needs rssi_enable=1",
      "rx_rssi?"},
     {"clock_ref_source?", sdr_cmd_clock_reference, 0, 0,
-     "Reference: 0=internal 40M, 1=external 10M discipline", "clock_ref_source=0"},
+     "Reference: 0=ADF4002 high-Z, 1=external 10M PLL after CH32 PA4 high-Z", "clock_ref_source=0"},
     {"clock_ref_source=", sdr_cmd_clock_reference, 1, 1,
-     "Reference: 0=internal 40M, 1=external 10M discipline", "clock_ref_source=0"},
-    /* PPS 频率监控：默认关闭，无输入不能报告有效频率。 */
+     "Reference: 0=ADF4002 high-Z, 1=external 10M PLL after CH32 PA4 high-Z", "clock_ref_source=0"},
+    /* PPS：默认关闭。无 10M 时由 CH32 PA4 驯服 40M；有 10M 时仅作参考。 */
     {"pps_status?", sdr_cmd_pps_status, 0, 0, "PPS signal presence / valid DATA_CLK measurement",
      "pps_status?"},
     {"pps_input_en?", sdr_cmd_pps_input, 0, 0,
-     "PPS frequency monitor only; default=0, no adjustment", "pps_input_en=1"},
+     "PPS input; without 10M the CH32 PA4 DAC disciplines 40M; default=0", "pps_input_en=1"},
     {"pps_input_en=", sdr_cmd_pps_input, 1, 1,
-     "PPS frequency monitor only; default=0, no adjustment", "pps_input_en=1"},
+     "PPS input; without 10M the CH32 PA4 DAC disciplines 40M; default=0", "pps_input_en=1"},
+    {"vcxo_status?", sdr_cmd_vcxo_status, 0, 0,
+     "40M tune mode, ADF4002/PA4 ownership and CH32 PPS loop state", "vcxo_status?"},
     /* 板级状态灯、风扇自动温控及 Zynq 内部温度。 */
     {"rgb_enable?", sdr_cmd_rgb_enable, 0, 0, "RGB status indicator; default on, brightness 15%",
      "rgb_enable?"},
@@ -146,7 +149,7 @@ void sdr_commands_help(void)
     console_print(
         "RGB default=on brightness=15%%; fan default=off, 25kHz automatic Zynq temperature control when enabled.\n");
     console_print(
-        "PPS default=off; pps_input_en=0/1 controls frequency monitoring only; pps_status? reports DATA_CLK Hz, not IQ timestamps or clock adjustment.\n");
+        "PPS default=off; pps_status? reports DATA_CLK Hz, not IQ timestamps. Mode=clock_ref_source+2*pps_input_en: 0 all high-Z, 1 10M PLL, 2 CH32 PA4 PPS loop, 3 10M PLL with PPS reference only.\n");
     console_print(
         "TX default=off; source 0=DDS 1=USB; masks 1=ch1 2=ch2 3=both; USB requires prefill before tx_enable=1.\n");
     console_print(
@@ -154,7 +157,7 @@ void sdr_commands_help(void)
     console_print(
         "FIR: rx_fir_read=/tx_fir_read=offset,count<=8; fir_enable=rx,tx. Clock: clock_sample_rate=Hz; clock_begin=/clock_rx=/clock_tx=/clock_commit=/clock_abort=\n");
     console_print(
-        "clock_ref_source 0=internal40M 1=external10M_disciplined40M; D5=hardware_lock_detect, no CPU readback. adf4002_self_test! flashes D5 with charge pump high-Z.\n");
+        "clock_ref_source 0=internal40M 1=external10M_disciplined40M (pending until CH32 confirms PA4 high-Z); D5=hardware_lock_detect, no CPU readback. adf4002_self_test! flashes D5 with charge pump high-Z.\n");
     console_print(
         "rx_lo_source/tx_lo_source 0=internal 1=external; external frequency is nominal, actual input must be 2x RF LO; signal presence unverified.\n");
 }
@@ -174,6 +177,11 @@ int sdr_commands_execute(const char *input)
         return result;
     }
     result = sdr_clock_execute(line);
+    if (result) {
+        return result;
+    }
+    /* CH32 发来的 vcxo_ack 行：静默处理，不产生任何输出。 */
+    result = sdr_vcxo_execute(line);
     if (result) {
         return result;
     }
@@ -418,6 +426,14 @@ int sdr_cmd_pps_status(const double *values, unsigned count)
     (void)values;
     (void)count;
     sdr_pps_status();
+    return 0;
+}
+
+int sdr_cmd_vcxo_status(const double *values, unsigned count)
+{
+    (void)values;
+    (void)count;
+    sdr_vcxo_status();
     return 0;
 }
 

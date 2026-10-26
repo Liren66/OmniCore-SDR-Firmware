@@ -42,6 +42,7 @@
 #include "console.h"
 #include "sdr_control.h"
 #include "sdr_board.h"
+#include "sdr_vcxo.h"
 #include "board_monitor.h"
 #include "xil_cache.h"
 #include <stdio.h>
@@ -77,6 +78,8 @@ int main(void)
     for (;;) {
         int line_result;
         command_service();
+        /* Here, never inside a command: VCXO lines must stay outside RSP envelopes. */
+        sdr_vcxo_service();
         line_result = console_poll_command(received_cmd, sizeof(received_cmd));
         if (line_result == CONSOLE_PENDING) {
             continue;

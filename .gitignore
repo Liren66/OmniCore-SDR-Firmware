@@ -53,3 +53,4 @@ OmniCore-SDR-Firmware.sdk/*_bsp/ps7_cortexa9_0/lib/*
 !OmniCore-SDR-Firmware.sdk/*_bsp/ps7_cortexa9_0/lib/.gitkeep
 *.o
 BOOT.bin
+OmniCore-SDR-Firmware.sdk/OmniCore-SDR-no-OS/bootimage/OmniCore-SDR-FSBL.bif

@@ -52,55 +52,59 @@
 #include <math.h>
 
 #include "xparameters.h"
+#include "xscugic.h"
 #include "xuartns550_l.h"
+#include "sleep.h"
 
 static size_t line_used;
 static int line_invalid, skip_lf;
 
-/* One execution context owns both sides of this fixed ring. It is serviced
- * during polled TX as well as normal RX; no ISR formats or dispatches commands. */
+/* Producer: uart_rx_isr() once console_enable_rx_irq() succeeded, before that
+ * the polled uart_capture_rx(). The 16-byte FIFO overruns after 51 us at
+ * 3.125 MBd, so any longer main-loop stall used to lose host lines; the
+ * interrupt removes that dependency. Consumer: main loop only. One free slot
+ * tells full from empty. The producer only flags a fault (ring full or LSR
+ * error); the consumer discards everything queued and resynchronizes at the
+ * next end of line. No ISR formats or dispatches commands. */
 static unsigned char rx_ring[CONSOLE_RX_RING_CAPACITY];
-static unsigned rx_head, rx_tail, rx_count;
-static int rx_drop_line, rx_loss_pending;
+static volatile unsigned rx_head, rx_tail;
+static volatile int rx_fault;
+static int rx_irq_active, rx_drop_line, rx_loss_pending;
 
+/* Consumer only. */
 static void uart_rx_lost(void)
 {
-    rx_head = rx_tail = rx_count = 0;
+    rx_fault = 0;
+    rx_tail = rx_head;
     line_used = 0;
     line_invalid = skip_lf = 0;
     rx_drop_line = 1;
     rx_loss_pending = 1;
 }
 
+/* Producer only. */
 static void uart_queue_byte(unsigned char ch)
 {
-    if (rx_drop_line) {
-        if (ch == '\r' || ch == '\n') rx_drop_line = 0;
-        return;
-    }
-    if (rx_count == CONSOLE_RX_RING_CAPACITY) {
-        /* Queued commands and a possibly parsed prefix are uncertain. Drop
-         * them together; resynchronize only at a complete line boundary. */
-        uart_rx_lost();
-        if (ch == '\r' || ch == '\n') rx_drop_line = 0;
+    const unsigned next = (rx_head + 1U) % CONSOLE_RX_RING_CAPACITY;
+    if (next == rx_tail) {
+        /* Queued commands and a possibly parsed prefix are uncertain. */
+        rx_fault = 1;
         return;
     }
     rx_ring[rx_head] = ch;
-    rx_head = (rx_head + 1U) % CONSOLE_RX_RING_CAPACITY;
-    ++rx_count;
+    __asm__ volatile("" ::: "memory"); /* publish the byte before the index */
+    rx_head = next;
 }
 
-/* Return the last LSR snapshot so TX never reads/clears receive error bits
- * without examining them. The budget bounds time in a busy RX path. */
-static u32 uart_capture_rx(void)
+/* Producer: move the hardware FIFO into the ring. */
+static u32 uart_drain_fifo(unsigned budget)
 {
     const UINTPTR base = XPAR_AXI_UART16550_0_BASEADDR;
-    unsigned budget = 32;
     u32 status;
     do {
         status = XUartNs550_ReadReg(base, XUN_LSR_OFFSET);
         if (status & XUN_LSR_ERROR_BREAK) {
-            uart_rx_lost();
+            rx_fault = 1;
             /* Bytes already in the hardware FIFO may precede the lost byte.
              * Clearing only RX prevents using an earlier EOL as recovery. */
             XUartNs550_WriteReg(base, XUN_FCR_OFFSET,
@@ -112,6 +116,84 @@ static u32 uart_capture_rx(void)
         }
     } while (--budget);
     return status;
+}
+
+/* Level-high GIC interrupt; empty the FIFO so the line deasserts. */
+static void uart_rx_isr(void *unused)
+{
+    (void)unused;
+    (void)uart_drain_fifo(XUN_FIFO_SIZE * 4U);
+}
+
+/* Return the last LSR snapshot so TX never reads/clears receive error bits
+ * without examining them. With the interrupt active only the ISR reads RBR. */
+static u32 uart_capture_rx(void)
+{
+    u32 status;
+    if (!rx_irq_active) {
+        return uart_drain_fifo(32);
+    }
+    status = XUartNs550_ReadReg(XPAR_AXI_UART16550_0_BASEADDR, XUN_LSR_OFFSET);
+    if (status & XUN_LSR_ERROR_BREAK) {
+        rx_fault = 1; /* this read cleared the error before the ISR saw it */
+    }
+    return status;
+}
+
+void console_poll_rx(void)
+{
+    (void)uart_capture_rx();
+}
+
+/* Board wiring (system.hwh): ip2intc_irpt -> sys_concat_intc In14 ->
+ * IRQ_F2P[14] -> GIC 90. The BSP's ..._IP2INTC_IRPT_INTR=62 is wrong for
+ * this design's reversed IRQ_F2P, like its PPS (91 vs 61) number. */
+#define CONSOLE_UART_IRQ_ID XPS_FPGA14_INT_ID
+
+/* Prove the interrupt path: in 16550 loopback the transmitter feeds the
+ * receiver internally and the TX pin idles high, so the CH32 sees nothing.
+ * The test byte is '\n', an empty line the parser ignores. */
+static int uart_rx_irq_self_test(void)
+{
+    const UINTPTR base = XPAR_AXI_UART16550_0_BASEADDR;
+    const unsigned head = rx_head;
+    unsigned waited;
+    XUartNs550_WriteReg(base, XUN_MCR_OFFSET, XUN_MCR_LOOP);
+    XUartNs550_WriteReg(base, XUN_THR_OFFSET, '\n');
+    for (waited = 0; waited < 1000U && rx_head == head; ++waited) usleep(1);
+    for (waited = 0; waited < 1000U &&
+         !(XUartNs550_ReadReg(base, XUN_LSR_OFFSET) & XUN_LSR_TX_EMPTY); ++waited) usleep(1);
+    XUartNs550_WriteReg(base, XUN_MCR_OFFSET, 0);
+    return rx_head != head ? 0 : -1;
+}
+
+int console_enable_rx_irq(void *gic_instance)
+{
+    XScuGic *gic = gic_instance;
+    const UINTPTR base = XPAR_AXI_UART16550_0_BASEADDR;
+    const u32 id = CONSOLE_UART_IRQ_ID;
+    if (gic == NULL) return -1;
+    if (rx_irq_active) return 0;
+    XScuGic_Disable(gic, id);
+    if (XScuGic_Connect(gic, id, uart_rx_isr, NULL) != XST_SUCCESS) return -1;
+    /* Above the CH32 (0xA0) and PPS (0xA8) interrupts; level high. */
+    XScuGic_SetPriorityTriggerType(gic, id, 0x98, 0x1);
+    (void)uart_drain_fifo(32);
+    rx_irq_active = 1;
+    XUartNs550_WriteReg(base, XUN_IER_OFFSET, XUN_IER_RX_DATA | XUN_IER_RX_LINE);
+    XScuGic_Enable(gic, id);
+    if (uart_rx_irq_self_test() == 0) return 0;
+    /* No interrupt arrived: keep the polled console working. */
+    XScuGic_Disable(gic, id);
+    XUartNs550_WriteReg(base, XUN_IER_OFFSET, 0);
+    rx_irq_active = 0;
+    (void)uart_drain_fifo(32);
+    return -1;
+}
+
+int console_rx_irq_active(void)
+{
+    return rx_irq_active;
 }
 
 static void uart_write_raw(unsigned char ch)
@@ -188,10 +270,9 @@ void uart_write_char(char data)
 *******************************************************************************/
 void uart_read_char(char * data)
 {
-    while (rx_count == 0U) uart_capture_rx();
+    while (rx_tail == rx_head) uart_capture_rx();
     *data = (char)rx_ring[rx_tail];
     rx_tail = (rx_tail + 1U) % CONSOLE_RX_RING_CAPACITY;
-    --rx_count;
 }
 
 /***************************************************************************//**
@@ -239,7 +320,8 @@ char console_init(unsigned long baud_rate)
 {
     line_used = 0;
     line_invalid = skip_lf = 0;
-    rx_head = rx_tail = rx_count = 0;
+    rx_head = rx_tail = 0;
+    rx_fault = 0;
     rx_drop_line = rx_loss_pending = 0;
     return uart_init(baud_rate);
 }
@@ -248,11 +330,15 @@ static int uart_try_read(void)
 {
     int received;
     uart_capture_rx();
-    if (rx_loss_pending || rx_count == 0U) return EOF;
-    received = rx_ring[rx_tail];
-    rx_tail = (rx_tail + 1U) % CONSOLE_RX_RING_CAPACITY;
-    --rx_count;
-    return received;
+    for (;;) {
+        if (rx_fault) uart_rx_lost();
+        if (rx_loss_pending || rx_tail == rx_head) return EOF;
+        received = rx_ring[rx_tail];
+        rx_tail = (rx_tail + 1U) % CONSOLE_RX_RING_CAPACITY;
+        /* After a loss, resynchronize only at a complete line boundary. */
+        if (!rx_drop_line) return received;
+        if (received == '\r' || received == '\n') rx_drop_line = 0;
+    }
 }
 
 int console_poll_command(char *command, size_t capacity)

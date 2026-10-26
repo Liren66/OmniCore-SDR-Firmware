@@ -13,11 +13,21 @@ typedef struct {
     uint32_t nominal_hz, measured_hz, pulse_count, invalid_count, age_ms;
     uint32_t raw_counter, hardware_timeout;
 } PpsStatus;
+/* One PPS edge. seq counts edges; epoch changes on every rearm, so equal
+ * epochs and consecutive seq values mean an unbroken DATA_CLK count chain.
+ * count is DATA_CLK cycles since the previous edge, valid only if valid=1. */
+typedef struct {
+    uint32_t seq, epoch, count, valid;
+} PpsSample;
 int pps_monitor_init(XScuGic *gic, uint32_t base);
 int pps_monitor_enable(unsigned enabled);
 /* Main loop only. Set zero before clock/PL changes; restore after they finish.
- * User enable is preserved; every new measurement needs two fresh PPS edges. */
-void pps_monitor_nominal(uint32_t hz);
+ * User enable is preserved; every new measurement needs two fresh PPS edges.
+ * Returns 1 when the nominal frequency changed (measurement rearmed). */
+int pps_monitor_nominal(uint32_t hz);
 void pps_monitor_status(PpsStatus *status);
 int pps_monitor_available(void);
+/* Main loop only. Returns 1 with the newest edge not yet taken, else 0.
+ * Edges arriving while the loop is blocked are skipped (seq jumps). */
+int pps_monitor_take_sample(PpsSample *sample);
 #endif

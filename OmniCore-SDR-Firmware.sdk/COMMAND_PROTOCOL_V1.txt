@@ -263,3 +263,29 @@ nominal_hz=4*Fs（当前2R2T LVDS DATA_CLK），不是40MHz参考的直接测量
 能力 pps_monitor=1，pps_adjustment=0；没有硬件时间戳/UTC/闭环调频。
 GIC使用物理IRQ_F2P[0]=61，与CH32的91共用已有GIC；不要使用当前BSP错误生成的PPS=91宏。
 OCH 0.3.3：get/set pps.input-enabled；get pps.status；C API och_set_pps_enabled/och_get_pps_status。
+
+40M 调谐模式 / CH32 PA4 驯服（2026-10-26）
+新硬件：CH32H417 PA4(DAC1_OUT) 与 ADF4002 CP 同接 40 MHz VCTCXO 调谐节点（CP→R109 100k→Vc，R101/R123 1M/1M 偏置 1.65V），PA4 原 LED 已去掉。
+模式 = clock_ref_source + 2*pps_input_en：
+  0 都不用：ADF4002 CE 低、CP 高阻；PA4 高阻；Vc=1.65V。
+  1 仅 10M：ADF4002 锁相环；PA4 高阻；不读锁定，默认锁定（D5 为硬件锁定指示）。
+  2 仅 PPS：ADF4002 高阻；CH32 按 Zynq 上传的 PPS 计数闭环驱动 PA4 DAC（buffer 关）。
+  3 10M+PPS：ADF4002 锁相环；PA4 高阻；PPS 计数仅作参考（pps_status? ±1ppm）。
+安全规则：关闭 CP 立即生效；打开 CP（进入 1/3）必须等 CH32 对当前 req 回 pa4=0，超时 3s 则保持高阻并在 vcxo_status? 报 error=-116（newlib ETIMEDOUT）。
+clock_ref_source=1 异步完成：回复 clock_ref_source=<已应用> requested=1 pending=1；轮询 vcxo_status? 至 pending=0。
+Zynq→CH32（主循环、两条命令之间输出，不在 RSP 信封内，Host 忽略）：
+  VCXO req=<n> mode=<m> seq=<n> epoch=<n> new=1 valid=<0|1> cnt=<DATA_CLK周期> exp=<期望整数Hz> expf=<期望Q16小数>   每个PPS边沿（仅模式2）
+  VCXO req=<n> mode=<m> new=0 valid=0   模式心跳（1s；等待应答时 250ms）
+  exp/expf 按 BBPLL 整数/小数字精确计算 4*Fs，避免 clk_get_rate 截断造成约 1ppb 偏差。
+CH32→Zynq（Zynq 静默处理）：只在主机命令行边界、收到 VCXO 行后 50ms 内、且没有未完成的主机命令（未见 RSP ... end）时插入，每条 VCXO 行最多一条。
+  原因：控制台为轮询方式，16 字节 FIFO 在 3.125MBd 下 51us 即溢出，Zynq 执行命令期间收到的字节会溢出并丢弃下一整行。
+  Zynq 在空闲循环中做的长操作（ADF4002 写锁存）期间调用 console_poll_rx() 持续收取 FIFO。
+  控制台接收改为 UART16550 中断（concat In14 -> IRQ_F2P[14] -> GIC 90，优先级 0x98；BSP 生成的 62 对本设计是错的）：ISR 把 FIFO 搬进 2KB 环形缓冲，主循环解析；GIC 初始化前仍为轮询。
+  启用时用 16550 内部回环自检（发一个换行，TX 引脚保持高电平）；中断未到则自动退回轮询。system_info? 的 rf_capabilities 报 console_rx=irq|polled。
+  vcxo_ack req= mode= pa4=<0高阻|1驱动> state=<0off|1cal|2acq|3track|4hold> dac= k=<milli-ppb/LSB> err=<milli-ppb> phase=<ns> n=<样本数>
+vcxo_status?：requested_mode applied_mode pending error pll bridge ack_age_ms pa4 state dac k_mppb err_mppb phase_ns samples locked req。
+  locked 仅模式2有意义：bridge=1 且 state=track 且 |phase|<=1000ns；其他模式 -1。
+CH32 环路：上电/复位 PA4 高阻；模式2 首次进入 DAC=2048（与偏置相同，无扰），CAL 步进 400LSB 测斜率 K，ACQ 每 8s 频率修正，
+  TRACK 为相位 PI（tau=15s，zeta=0.707，DAC 按 1Hz 一阶 Sigma-Delta 取整；相位超过 2us 只清零相位，不退回 ACQ）；无新样本 3s 进入 HOLD 保持 DAC；PPS 计数跳变 >500ppb 视为毛刺并清零相位。
+能力 pps_adjustment=1 vcxo=1；pps_status? 字段不变（monitor_only=1 adjustment=0 描述计数器本身）。
+固件标识 SDK_CMD_1.0_20261026_VCXO（协议仍为 1.0）；需配套 CH32 Bridge VCXO 版本和 OCH vcxo 支持。

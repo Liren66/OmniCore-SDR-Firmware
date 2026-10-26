@@ -73,6 +73,16 @@ int console_get_command(char* command, size_t capacity);
 /* Nonblocking, at most 32 received bytes/call. Keep buffer/capacity stable
  * between calls. Returns CONSOLE_PENDING, -1 (bad line), or line length. */
 int console_poll_command(char* command, size_t capacity);
+/* Main-loop context only. Moves received bytes from the 16-byte UART FIFO
+ * into the line ring without dispatching. Call inside any loop that may run
+ * longer than ~50 us outside a host command (3.125 MBd fills the FIFO in
+ * 51 us; an overrun discards the next whole line). */
+void console_poll_rx(void);
+/* After the GIC is initialised: receive through the UART16550 interrupt
+ * (XScuGic *). Returns 0 on success; on failure the console stays polled. */
+int console_enable_rx_irq(void *gic);
+/* 1 when console RX runs from the UART interrupt (self-test passed). */
+int console_rx_irq_active(void);
 
 /* Compares two commands and returns the type of the command. */
 int console_check_commands(const char* received_cmd,

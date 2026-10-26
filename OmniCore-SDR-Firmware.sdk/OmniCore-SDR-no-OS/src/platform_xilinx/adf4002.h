@@ -31,6 +31,8 @@ struct adf4002_status {
 int32_t adf4002_init(void);
 /* 0: free-running on-board 40 MHz, CE low; 1: discipline it to J3 10 MHz.
  * Enabling does not prove that an external reference is present or locked.
+ * CH32 PA4 shares the CP node: call with 1 only via sdr_vcxo.c, after the
+ * CH32 acknowledged PA4 high-Z for the current request.
  */
 int32_t adf4002_set_external_reference(uint8_t enabled);
 int32_t adf4002_get_external_reference(uint8_t *enabled);

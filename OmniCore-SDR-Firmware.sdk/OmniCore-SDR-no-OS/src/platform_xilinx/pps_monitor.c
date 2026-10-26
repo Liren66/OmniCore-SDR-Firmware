@@ -12,8 +12,10 @@
 static XScuGic *controller;
 static uint32_t address, available, enabled, nominal;
 static volatile uint32_t pulses, invalid, have_edge, have_interval, valid, measured, raw;
+static volatile uint32_t edge_seq, edge_epoch;
 static volatile uint64_t last_us;
 static uint64_t armed_us;
+static uint32_t taken_seq;
 
 static void barrier(void)
 {
@@ -46,6 +48,7 @@ static void clear_pending(void)
 static void reset_measurement(void)
 {
     have_edge=have_interval=valid=measured=raw=0; last_us=0; armed_us=now_us();
+    ++edge_epoch;
 }
 static void handler(void *unused)
 {
@@ -66,7 +69,7 @@ static void handler(void *unused)
             measured=count+1U; valid=1;
         } else ++invalid;
     }
-    last_us=now; have_edge=1;
+    last_us=now; have_edge=1; ++edge_seq;
     /* No printing, RF writes or GIC EOI here; the shared dispatcher owns EOI. */
 }
 int pps_monitor_init(XScuGic *gic, uint32_t base)
@@ -91,14 +94,30 @@ int pps_monitor_enable(unsigned value)
     }
     return 0;
 }
-void pps_monitor_nominal(uint32_t hz)
+int pps_monitor_nominal(uint32_t hz)
 {
-    if(!available || hz==nominal) return;
+    if(!available || hz==nominal) return 0;
     disable_irq(); masks(1); clear_pending();
     nominal=hz; reset_measurement();
     if(enabled && nominal) {
         XScuGic_Enable(controller,PPS_BOARD_IRQ_ID); masks(0);
     }
+    return 1;
+}
+int pps_monitor_take_sample(PpsSample *s)
+{
+    int fresh;
+    /* Aligned 32-bit read: peek without touching the GIC on every loop pass. */
+    if(!available || !enabled || !nominal || edge_seq==taken_seq) return 0;
+    disable_irq();
+    fresh=edge_seq!=taken_seq;
+    if(fresh) {
+        taken_seq=edge_seq;
+        s->seq=edge_seq; s->epoch=edge_epoch;
+        s->valid=valid; s->count=valid?measured:0;
+    }
+    XScuGic_Enable(controller,PPS_BOARD_IRQ_ID);
+    return fresh;
 }
 void pps_monitor_status(PpsStatus *s)
 {

@@ -58,10 +58,12 @@ int sdr_cmd_adf4002_self_test(const double *values, unsigned count);
 int sdr_cmd_rx_lo_source(const double *values, unsigned count);
 /* TX LO: 0=internal, 1=external 2x RF frequency */
 int sdr_cmd_tx_lo_source(const double *values, unsigned count);
-/* PPS frequency monitor only; default=0, no adjustment */
+/* PPS input; without 10M the CH32 PA4 DAC disciplines 40M; default=0 */
 int sdr_cmd_pps_input(const double *values, unsigned count);
 /* PPS signal presence / valid DATA_CLK measurement */
 int sdr_cmd_pps_status(const double *values, unsigned count);
+/* 40M tune mode, ADF4002/PA4 ownership and CH32 PPS loop state */
+int sdr_cmd_vcxo_status(const double *values, unsigned count);
 /* Stop streams, reinitialize RF, restore verified settings */
 int sdr_cmd_rf_reinit(const double *values, unsigned count);
 /* Stop streams and check RX PRBS / TX digital loopback */

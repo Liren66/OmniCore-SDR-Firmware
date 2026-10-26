@@ -1,6 +1,6 @@
 /* 鏈澘 RF 涓� USB 杩愯鐘舵�佹満銆傚懡浠ゅ瓧绗︿覆涓庡洖璋冭 sdr_commands.c銆�
  * 鍙湪涓诲惊鐜墽琛岋紱涓柇璐熻矗閿佸瓨浜嬩欢锛岃�楁椂鎭㈠鍜屾墦鍗板湪 service 涓鐞嗐��
- * OmniCore SDR command protocol 1.0, SDK 2026-10-23.
+ * OmniCore SDR command protocol 1.0, SDK 2026-10-26 (VCXO / PA4 tune modes).
  * Main-loop state machine. No MCU/FPGA changes. RX overflow recovery rearms
  * the existing 16 KiB preamble; never claim lost IQ has been restored.
  */
@@ -12,6 +12,7 @@
 #include "sdr_reference.h"
 #include "sdr_external_lo.h"
 #include "sdr_pps.h"
+#include "sdr_vcxo.h"
 #include "sdr_board.h"
 #include "board_monitor.h"
 #include "sdr_clock.h"
@@ -271,6 +272,10 @@ int sdr_control_init(void)
         sdr_state.bridge_ready = 0;
         return rc;
     }
+    /* Console RX by interrupt: CH32 vcxo_ack lines and host commands may now
+     * arrive while the main loop is busy (SPI, ADF4002, XADC); polling alone
+     * overran the 16-byte UART FIFO. Failure keeps the polled console. */
+    (void)console_enable_rx_irq(irq.Gic);
     /* Share the existing GIC; PPS failure must not disable the USB bridge. */
     (void)pps_monitor_init(irq.Gic, XPAR_AXI_AD9361_BASEADDR);
     sdr_pps_refresh();
@@ -501,12 +506,13 @@ void sdr_print_usb_status(void)
 void sdr_print_system_info(void)
 {
     console_print(
-        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.0_20261024_IQ8 protocol=1.0 fpga=unknown channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n");
+        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.0_20261026_VCXO protocol=1.0 fpga=unknown channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n");
     console_print(
-        "capabilities channel=1 tx_gate=1 usb=1 clock_chain=1 supported_fir_ids=0 fir_upload=1 clock_config=1 rx_correction=1 adf4002=1 ref_source=1 external_lo=1 rf_reinit=1 digital_self_test=1 events=1 overflow_policy=rx_restart_header_report clock_ref_source=adf4002_10MHz_discipline lock_readback=0 pps_monitor=%u pps_adjustment=0\n",
+        "capabilities channel=1 tx_gate=1 usb=1 clock_chain=1 supported_fir_ids=0 fir_upload=1 clock_config=1 rx_correction=1 adf4002=1 ref_source=1 external_lo=1 rf_reinit=1 digital_self_test=1 events=1 overflow_policy=rx_restart_header_report clock_ref_source=adf4002_10MHz_discipline lock_readback=0 pps_monitor=%u pps_adjustment=1 vcxo=1\n",
         pps_monitor_available());
     console_print("iq_capabilities iq_format=1 iq8_2t2r=%u default_bits=12\n", sdr_iq_format_capable());
-    console_print("rf_capabilities rssi=1 console_baud=%lu\n", (unsigned long)CONSOLE_BAUD_RATE);
+    console_print("rf_capabilities rssi=1 console_baud=%lu console_rx=%s\n",
+                  (unsigned long)CONSOLE_BAUD_RATE, console_rx_irq_active() ? "irq" : "polled");
     console_print("board_capabilities board_rgb=%u fan_control=%u core_temp=1\n",
                   board_monitor_available(), board_monitor_available());
     if (sdr_iq_format_bits()) {
@@ -587,6 +593,7 @@ void sdr_print_system_status(void)
     sdr_print_usb_status();
     sdr_reference_status();
     sdr_pps_status();
+    sdr_vcxo_status();
 }
 
 int sdr_set_usb_data(unsigned re, unsigned te)
