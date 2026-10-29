@@ -14,7 +14,7 @@ CH32H417 USB 3.0 双核桥接固件，以及 FT2232 JTAG 接口的 EEPROM 配置
 
 从 [GitHub Releases](https://github.com/Liren66/OmniCore-SDR-Firmware/releases) 下载同一版本的两个镜像。
 当前版本为 [v2026.10.29.1](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.10.29.1)，
-新增 FT2232 工具包，并将双核固件附件名称统一为 **`Merge.bin`**（大写 `M`、小写 `.bin`）。
+新增 FT2232 工具包，并将双核固件附件名称统一为 **`Merge.bin`**。
 
 | 文件 | 对应器件 | 内容与使用方式 |
 |---|---|---|
