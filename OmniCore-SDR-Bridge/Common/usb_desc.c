@@ -1,0 +1,354 @@
+/********************************** (C) COPYRIGHT *******************************
+ * File Name          : usb_desc.c
+ * Author             : WCH
+ * Version            : V1.0.2
+ * Date               : 2026/09/09
+ * Description        : usb device descriptor,configuration descriptor,
+ *                      string descriptors and other descriptors.
+*********************************************************************************
+* Copyright (c) 2025 Nanjing Qinheng Microelectronics Co., Ltd.
+* Attention: This software (modified or not) and binary are used for
+* microcontroller manufactured by Nanjing Qinheng Microelectronics.
+*******************************************************************************/
+
+#include "ch32h417.h"
+#include "usb_desc.h"
+
+/* Device Descriptor */
+const uint8_t  MyDevDescr[ ] =
+{
+    0x12,                                                   // bLength
+    0x01,                                                   // bDescriptorType
+    0x00, 0x02,                                             // bcdUSB
+    0xFF,                                                   // bDeviceClass
+    0xFF,                                                   // bDeviceSubClass
+    0xFF,                                                   // bDeviceProtocol
+    DEF_USBD_UEP0_SIZE,                                     // bMaxPacketSize0
+    (uint8_t)DEF_USB_VID, (uint8_t)( DEF_USB_VID >> 8 ),    // idVendor
+    (uint8_t)DEF_USB_PID, (uint8_t)( DEF_USB_PID >> 8 ),    // idProduct
+    DEF_IC_PRG_VER, 0x00,                                   // bcdDevice
+    0x01,                                                   // iManufacturer
+    0x02,                                                   // iProduct
+    0x03,                                                   // iSerialNumber
+    0x01,                                                   // bNumConfigurations
+};
+
+/* USB 2.0 HS: EP1 IQ, EP2 USART1 control, EP3 diagnostics. */
+const uint8_t MyCfgDescr_HS[] =
+{
+    0x09, 0x02, 0x35, 0x00, 0x01, 0x01, 0x00, 0x80, 0x32,
+    0x09, 0x04, 0x00, 0x00, 0x05, 0xFF, 0xFF, 0xFF, 0x00,
+    0x07, 0x05, 0x81, 0x02, 0x00, 0x02, 0x00,
+    0x07, 0x05, 0x01, 0x02, 0x00, 0x02, 0x00,
+    0x07, 0x05, 0x82, 0x02, 0x00, 0x02, 0x00,
+    0x07, 0x05, 0x02, 0x02, 0x00, 0x02, 0x00,
+    0x07, 0x05, 0x83, 0x02, 0x00, 0x02, 0x00,
+};
+
+/* USB 2.0 FS: EP1 IQ, EP2 USART1 control, EP3 diagnostics. */
+const uint8_t MyCfgDescr_FS[] =
+{
+    0x09, 0x02, 0x35, 0x00, 0x01, 0x01, 0x00, 0x80, 0x32,
+    0x09, 0x04, 0x00, 0x00, 0x05, 0xFF, 0xFF, 0xFF, 0x00,
+    0x07, 0x05, 0x81, 0x02, 0x40, 0x00, 0x00,
+    0x07, 0x05, 0x01, 0x02, 0x40, 0x00, 0x00,
+    0x07, 0x05, 0x82, 0x02, 0x40, 0x00, 0x00,
+    0x07, 0x05, 0x02, 0x02, 0x40, 0x00, 0x00,
+    0x07, 0x05, 0x83, 0x02, 0x40, 0x00, 0x00,
+};
+
+/* Device Qualified Descriptor */
+const uint8_t MyQuaDesc[ ] =
+{
+    0x0A, 0x06, 0x00, 0x02, 0xFF, 0xFF, 0xFF, 0x40, 0x01, 0x00,
+};
+
+/* Device BOS Descriptor */
+const uint8_t MyBOSDesc[ ] =
+{
+    /* Binary Object Store (BOS) Descriptor */
+    0x05, 0x0F, 0x2A, 0x00, 0x01,
+    /* USB 2.0 Extension Descriptor */
+    0x07, 0x10, 0x02, 0x02, 0x00, 0x00, 0x00,
+    /* SuperSpeed USB Device Capability Descriptor */
+    0x0A, 0x10, 0x03, 0x00, 0x0E, 0x00, 0x10, 0x0A, 0x20, 0x00,
+    /* SuperSpeedPlus USB Device Capability */
+    0x14, 0x10, 0x0A, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x11,
+    0x00, 0x00, 0x30, 0x40, 0x0A, 0x00, 0xB0, 0x40, 0x0A, 0x00,
+    
+};
+
+/* USB Full-Speed Mode, Other speed configuration Descriptor */
+uint8_t TAB_USB_FS_OSC_DESC[ sizeof(MyCfgDescr_HS) ] =
+{
+    /* Other parts are copied through the program */
+    0x09, 0x07,
+};
+
+/* USB High-Speed Mode, Other speed configuration Descriptor */
+uint8_t TAB_USB_HS_OSC_DESC[ sizeof(MyCfgDescr_FS) ] =
+{
+    /* Other parts are copied through the program */
+    0x09, 0x07,
+};
+
+/*Superspeed device descriptor*/
+const uint8_t SS_DeviceDescriptor[ ] =
+{
+    0x12,                                                   // bLength
+    0x01,                                                   // bDescriptorType
+    0x00, 0x03,                                             // bcdUSB
+    0xff,                                                   // bDeviceClass
+    0x80,                                                   // bDeviceSubClass
+    0x55,                                                   // bDeviceProtocol
+    0x09,                                                   // bMaxPacketSize0
+    (uint8_t)DEF_USB_VID, (uint8_t)(DEF_USB_VID >> 8),      // idVendor
+    (uint8_t)DEF_USB30_PID, (uint8_t)(DEF_USB30_PID >> 8),  // idProduct
+    DEF_IC_PRG_VER, 0x00,                                   // bcdDevice
+    0x01,                                                   // iManufacturer
+    0x02,                                                   // iProduct
+    0x03,                                                   // iSerialNumber
+    0x01,                                                   // bNumConfigurations
+};
+
+const uint8_t SS_ConfigDescriptor[ ] =
+{
+    /* Configuration Descriptor */
+    0x09,                                                   // bLength
+    0x02,                                                   // bDescriptorType
+    0x53, 0x00,                                             // wTotalLength
+    0x01,                                                   // bNumInterfaces
+    0x01,                                                   // bConfigurationValue
+    0x00,                                                   // iConfiguration
+    0x80,                                                   // bmAttributes: Bus Powered; Remote Wakeup
+    0x70,                                                   // MaxPower: 100mA  这里注意一下
+
+    /* Interface Descriptor (Keyboard) */
+    0x09,                                                   // bLength
+    0x04,                                                   // bDescriptorType
+    0x00,                                                   // bInterfaceNumber
+    0x00,                                                   // bAlternateSetting
+    0x05,                                                   // bNumEndpoints
+    0xff,                                                   // bInterfaceClass
+    0xff,                                                   // bInterfaceSubClass
+    0xff,                                                   // bInterfaceProtocol: Keyboard
+    0x00,                                                   // iInterface
+
+    /* EP1 IN / OUT: original 16-packet burst. */
+    0x07, 0x05, 0x81, 0x02, 0x00, 0x04, 0x00,
+    0x06, 0x30, 0x0F, 0x00, 0x00, 0x00,
+    0x07, 0x05, 0x01, 0x02, 0x00, 0x04, 0x00,
+    0x06, 0x30, 0x0F, 0x00, 0x00, 0x00,
+    /* EP2 IN / OUT: USART1, one-packet burst. */
+    0x07, 0x05, 0x82, 0x02, 0x00, 0x04, 0x00,
+    0x06, 0x30, 0x00, 0x00, 0x00, 0x00,
+    0x07, 0x05, 0x02, 0x02, 0x00, 0x04, 0x00,
+    0x06, 0x30, 0x00, 0x00, 0x00, 0x00,
+    /* EP3 IN only: printf text, one-packet burst. */
+    0x07, 0x05, 0x83, 0x02, 0x00, 0x04, 0x00,
+    0x06, 0x30, 0x00, 0x00, 0x00, 0x00,
+};
+
+/*String Descriptor Lang ID*/
+const uint8_t MyLangDescr[ ] =
+{
+    0x04,
+    0x03,
+    0x09,
+    0x04
+};
+
+/*String Descriptor Vendor*/
+const uint8_t MyManuInfo[] =
+{
+    0x12, 0x03,
+    'O', 0x00, 'm', 0x00, 'n', 0x00,
+    'i', 0x00, 'C', 0x00,
+    'o', 0x00, 'r', 0x00, 'e', 0x00
+};
+/*String Descriptor Product*/
+const uint8_t MyProdInfo[] =
+{
+    0x1A, 0x03,
+    'O', 0x00, 'm', 0x00, 'n', 0x00,
+    'i', 0x00, 'C', 0x00,
+    'o', 0x00, 'r', 0x00, 'e', 0x00,
+    ' ', 0x00,
+    'S', 0x00, 'D', 0x00, 'R', 0x00
+};
+
+/*String Descriptor Serial*/
+uint8_t MySerNumInfo[] =
+{
+    0x22, 0x03,
+    'O', 0x00, 'm', 0x00, 'n', 0x00,
+    'i', 0x00, 'C', 0x00,
+    'o', 0x00, 'r', 0x00, 'e', 0x00,
+    '0', 0x00, '0', 0x00, '0', 0x00, '0', 0x00,
+    '0', 0x00, '0', 0x00, '0', 0x00, '1', 0x00
+};
+
+/* Build the serial before enabling USB. CRC-32/ISO-HDLC over all 12 UID
+ * bytes in ascending address order; a 32-bit suffix can have collisions.
+ * CH32H417 RM, ESIG: UID at 0x1FFFF7E8, 0x1FFFF7EC, 0x1FFFF7F0.
+ */
+void USB_SerialNumber_Init(void)
+{
+    const volatile uint8_t *uid = (const volatile uint8_t *)0x1FFFF7E8UL;
+    static const char hex[] = "0123456789ABCDEF";
+    uint32_t crc = 0xFFFFFFFFUL;
+    uint8_t i;
+    uint8_t bit;
+
+    /* Software CRC avoids changing any peripheral state. */
+    for (i = 0; i < 12; ++i)
+    {
+        crc ^= uid[i];
+        for (bit = 0; bit < 8; ++bit)
+        {
+            crc = (crc >> 1) ^ ((crc & 1U) ? 0xEDB88320UL : 0U);
+        }
+    }
+    crc ^= 0xFFFFFFFFUL;
+
+    /* Skip the descriptor header and the eight-character OmniCore prefix. */
+    for (i = 0; i < 8; ++i)
+    {
+        MySerNumInfo[18 + i * 2] = (uint8_t)hex[(crc >> (28 - i * 4)) & 0x0FU];
+        MySerNumInfo[19 + i * 2] = 0;
+    }
+}
+
+const uint8_t OSStringDescriptor[] =
+{
+    0x12, 0x03,
+    'M', 0x00,
+    'S', 0x00,
+    'F', 0x00,
+    'T', 0x00,
+    '1', 0x00,
+    '0', 0x00,
+    '0', 0x00,
+    USB_MS_VENDOR_CODE,
+    0x00
+};
+
+const uint8_t MyBOSDesc_SS[ ] =
+{
+    0x05,
+    0x0f, 
+    0x16,
+    0x00,
+    0x02,
+   
+    0x07,
+    0x10,
+    0x02, 
+    0x06,
+    0x00,
+    0x00,
+    0x00,
+   
+    0x0a,
+    0x10,
+    0x03,
+    0x00,
+    0x0e, 
+    0x00,
+    0x01, 
+    0x0a, 
+    0xff, 
+    0x07
+};
+
+const uint8_t MSOS20DescriptorSet[ ] =
+{
+    // Microsoft OS 2.0 Descriptor Set Header
+    0x0A, 0x00,            
+    0x00, 0x00,          
+    0x00, 0x00, 0x03, 0x06, 
+    0x48, 0x00,           
+                             
+    0x3E, 0x00,          
+    0x04, 0x00,          
+    0x04, 0x00,          
+    0x30, 0x00,            
+    0x53, 0x00, 0x65, 0x00, 
+    0x6C, 0x00, 0x65, 0x00,
+    0x63, 0x00, 0x74, 0x00,
+    0x69, 0x00, 0x76, 0x00,
+    0x65, 0x00, 0x53, 0x00,
+    0x75, 0x00, 0x73, 0x00,
+    0x70, 0x00, 0x65, 0x00,
+    0x6E, 0x00, 0x64, 0x00,
+    0x45, 0x00, 0x6E, 0x00,
+    0x61, 0x00, 0x62, 0x00,
+    0x6C, 0x00, 0x65, 0x00,
+    0x64, 0x00, 0x00, 0x00,
+    0x04, 0x00,            
+    0x01, 0x00, 0x00, 0x00
+};
+
+const uint8_t PropertyHeader[ ] =
+{
+    0x8e, 0x00, 0x00, 0x00, 0x00, 01, 05, 00, 01, 00,
+    0x84, 0x00, 0x00, 0x00,
+    0x01, 0x00, 0x00, 0x00,
+    0x28, 0x00,
+    0x44, 0x00, 0x65, 0x00, 0x76, 0x00, 0x69, 0x00, 0x63, 0x00, 0x65, 0x00, 0x49, 0x00, 0x6e,
+    0x00, 0x74, 0x00, 0x65, 0x00, 0x72, 0x00, 0x66, 0x00, 0x61, 0x00, 0x63, 0x00, 0x65, 0x00, 0x47, 0x00, 0x55, 0x00, 0x49, 0x00, 0x44, 0x00, 0x00, 0x00,
+
+    0x4e, 0x00, 0x00, 0x00,
+    0x7b, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x00, 0x34, 0x00, 0x35, 0x00, 0x36, 0x00, 0x37, 0x00, 0x38, 0x00,
+    0x2d, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x00, 0x34, 0x00,
+    0x2d, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x00, 0x34, 0x00,
+    0x2d, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x00, 0x34, 0x00, 0x2d, 0x00, 0x31, 0x00, 0x32, 0x00, 0x33, 0x00,
+    0x34, 0x00, 0x35, 0x00, 0x36, 0x00, 0x37, 0x00, 0x38, 0x00, 0x39, 0x00, 0x41, 0x00, 0x42, 0x00, 0x43, 0x00,
+    0x7d, 0x00, 0x00, 0x00
+};
+
+const uint8_t CompactId[ ] =
+{
+    0x28, 0x00, 0x00, 0x00, 0x00, 0x01, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    0x57, 0x49, 0x4e, 0x55, 0x53, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+uint16_t USB_MSOS_GetDescriptor(
+    uint8_t request_type,
+    uint8_t request,
+    uint16_t value,
+    uint16_t index,
+    const uint8_t **descriptor)
+{
+    if ((request != USB_MS_VENDOR_CODE) || (value != 0))
+    {
+        return 0;
+    }
+
+    /* Extended Compatible ID: device recipient */
+    if ((request_type == 0xC0) && (index == 0x0004))
+    {
+        *descriptor = CompactId;
+        return (uint16_t)sizeof(CompactId);
+    }
+
+    /*
+     * Extended Properties: interface 0.
+     * Also accept device recipient for host-side verification.
+     */
+    if (((request_type == 0xC1) || (request_type == 0xC0)) &&
+        (index == 0x0005))
+    {
+        *descriptor = PropertyHeader;
+        return (uint16_t)sizeof(PropertyHeader);
+    }
+
+    return 0;
+}
+
+uint8_t GetStatus[ ] =
+{
+    0x01, 0x00
+};
+
+

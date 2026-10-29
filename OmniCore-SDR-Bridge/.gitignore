@@ -1,0 +1,5 @@
+# MounRiver Studio build output
+obj/
+
+# MounRiver Studio editor state and machine-specific debug launch config
+.mrs/
