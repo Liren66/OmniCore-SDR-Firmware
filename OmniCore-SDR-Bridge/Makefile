@@ -19,7 +19,10 @@ OBJCOPY := "$(TOOLCHAIN)/riscv32-wch-elf-objcopy"
 SIZE    := "$(TOOLCHAIN)/riscv32-wch-elf-size"
 
 BUILD    := build
-BUILD_ID := $(shell git describe --always --dirty --abbrev=7 2>/dev/null | cut -c1-15)
+# Only this directory decides "-dirty": the rest of the repository (Vivado,
+# SDK) does not change the CH32 images.
+BUILD_ID := $(shell git describe --always --abbrev=7 2>/dev/null)$(shell git diff --quiet HEAD -- . 2>/dev/null || echo -dirty)
+BUILD_ID := $(shell echo "$(BUILD_ID)" | cut -c1-15)
 ifeq ($(BUILD_ID),)
 BUILD_ID := unknown
 endif
