@@ -28,6 +28,51 @@ When the USB is set to high speed, it is recommended to use an external crystal 
 #include "hardware.h"
 #include "ch32h417_usbss_device.h"
 #include "ch32h417_usbhs_device.h"
+#include "ocfw.h"
+
+/*********************************************************************
+ * @fn      Select_V5F_Entry
+ *
+ * @brief   Stage-0: pick where V5F starts. The bootloader runs when the
+ *          application asked for it, or when page 0 of the application is
+ *          erased (empty chip or interrupted update; the bootloader writes
+ *          page 0 last). Without a bootloader the old layout is kept.
+ *          The bootloader runs under the independent watchdog: if it hangs,
+ *          the chip resets and the application starts instead of looping
+ *          back into the bootloader.
+ *
+ * @return  V5F wake-up address
+ */
+static uint32_t Select_V5F_Entry(void)
+{
+    volatile ocfw_shared_t *shared = OCFW_SHARED;
+    uint8_t watchdog = RCC_GetFlagStatus(RCC_FLAG_IWDGRST) == SET;
+    uint8_t programmed = (ocfw_app_status(0) & OCFW_APP_PROGRAMMED) != 0;
+
+    RCC_ClearFlag();
+    if(ocfw_boot_version() == 0)
+    {
+        return Core_V5F_StartAddr;
+    }
+    if(ocfw_boot_requested() || !programmed)
+    {
+        /* A watchdog reset during a bootloader run: it hung, or it restarted
+         * to leave. Either way the application is the safe choice. */
+        if(watchdog && shared->attempt == OCFW_ATTEMPT_MAGIC && programmed)
+        {
+            shared->attempt = 0;
+            shared->fallbacks++;
+            return Core_V5F_StartAddr;
+        }
+        shared->attempt = OCFW_ATTEMPT_MAGIC;
+        shared->trace = 0;
+        shared->loops = 0;
+        ocfw_watchdog_start();
+        return OCFW_BOOT_ADDR;
+    }
+    shared->attempt = 0;
+    return Core_V5F_StartAddr;
+}
 
 /*********************************************************************
  * @fn      main
@@ -70,7 +115,7 @@ int main(void)
 
 #elif (Run_Core == Run_Core_V5F)
 
-    NVIC_WakeUp_V5F(Core_V5F_StartAddr);//wake up V5
+    NVIC_WakeUp_V5F(Select_V5F_Entry());//wake up V5 (application or bootloader)
     PWR_EnterSTOPMode(PWR_Regulator_ON, PWR_STOPEntry_WFE);
 #endif
 

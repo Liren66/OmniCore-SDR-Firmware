@@ -18,6 +18,8 @@
 #include "usbss_uart1_bridge.h"
 #include "usb_ep3_debug.h"
 #include "stream_diag.h"
+#include "hardware.h"
+#include "ocfw.h"
  
 /* Global */
 const uint8_t    *pUSBSS_Descr;
@@ -28,6 +30,8 @@ volatile uint8_t  USBSS_SetupReqCode;
 volatile uint16_t USBSS_SetupReqValue;
 volatile uint16_t USBSS_SetupReqIndex;
 volatile uint16_t USBSS_SetupReqLen;
+/* Firmware update OUT data stage pending (ocfw.h). */
+static uint8_t USBSS_Ocfw_Out;
 
 /* USB Device Status */
 volatile uint8_t  USBSS_DevConfig;
@@ -193,7 +197,15 @@ void USBSS_IRQHandler( void )
 
         len = 0;
         errflag = 0;
-        if(USBSS_SetupReqType==0xC0 && USBSS_SetupReqCode==0xD0) {
+        USBSS_Ocfw_Out=0;
+        if(OCFW_IS_REQUEST(USBSS_SetupReqType,USBSS_SetupReqCode)) {
+            /* Firmware update (ocfw.h); OUT data fits one 512-byte EP0 packet. */
+            if(!Ocfw_Setup(USBSS_SetupReqType,USBSS_SetupReqCode,USBSS_SetupReqValue,
+                           USBSS_SetupReqIndex,USBSS_SetupReqLen,USBSS_EP0_Buf,&len)) errflag=0xFF;
+            else if(USBSS_SetupReqType&DEF_UEP_IN) { if(USBSS_SetupReqLen>len) USBSS_SetupReqLen=len; }
+            else USBSS_Ocfw_Out=USBSS_SetupReqLen!=0;
+        }
+        else if(USBSS_SetupReqType==0xC0 && USBSS_SetupReqCode==0xD0) {
             len=StreamDiag_Read(USBSS_EP0_Buf,USBSS_SetupReqIndex,USBSS_SetupReqValue);
             if(!len) errflag=0xFF;
             if(USBSS_SetupReqLen>len) USBSS_SetupReqLen=len;
@@ -689,6 +701,14 @@ void USBSS_IRQHandler( void )
             {
                 /* end-point 0 data out interrupt */
                 case DEF_UEP0:
+                    if(USBSS_Ocfw_Out)
+                    {
+                        /* Firmware update data: the host sends exactly wLength. */
+                        USBSS_Ocfw_Out = 0;
+                        len = USBSS_SetupReqLen > OCFW_CHUNK_MAX ? OCFW_CHUNK_MAX : USBSS_SetupReqLen;
+                        memcpy(Ocfw_OutBuffer(), USBSS_EP0_Buf, len);
+                        Ocfw_OutDone(len);
+                    }
                     USBSSD->UEP0_RX_CTRL = USBSS_EP0_RX_ERDY | USBSS_EP0_RX_ACK ;       // ready status step
                     break;
 

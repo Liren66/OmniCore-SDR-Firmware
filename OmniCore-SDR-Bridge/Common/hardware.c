@@ -17,6 +17,76 @@
 #include "usb_ep3_debug.h"
 #include "usb_desc.h"
 #include "vcxo_discipline.h"
+#include "fw_version.h"
+#include "ocfw.h"
+
+static volatile uint8_t Ocfw_EnterBoot;
+static uint32_t Ocfw_AppStatus;
+
+/*********************************************************************
+ * @fn      Ocfw_Setup
+ *
+ * @brief   Firmware update vendor requests (ocfw.h), interrupt context.
+ *          The application answers INFO and ENTER_BOOT; the flash write
+ *          and reset for ENTER_BOOT are deferred to Ocfw_App_Task() so the
+ *          status stage completes first. Bootloader-only requests STALL.
+ *
+ * @return  1 to accept, 0 to STALL
+ */
+uint8_t Ocfw_Setup( uint8_t type, uint8_t request, uint16_t value, uint16_t index, uint16_t length,
+                    uint8_t *in, uint16_t *in_len )
+{
+    (void)index;
+    if(type == 0xC0 && request == OCFW_REQ_INFO && length)
+    {
+        ocfw_fill_info((ocfw_info_t *)in, OCFW_MODE_APP, Ocfw_AppStatus);
+        *in_len = sizeof(ocfw_info_t);
+        return 1;
+    }
+    if(type == 0x40 && request == OCFW_REQ_ENTER_BOOT && value == OCFW_KEY && length == 0)
+    {
+        Ocfw_EnterBoot = 1;
+        return 1;
+    }
+    return 0;
+}
+
+/* The application accepts no OUT data stages. */
+uint8_t *Ocfw_OutBuffer( void )
+{
+    static uint8_t unused[4];
+    return unused;
+}
+
+void Ocfw_OutDone( uint16_t length )
+{
+    (void)length;
+}
+
+/*********************************************************************
+ * @fn      Ocfw_App_Task
+ *
+ * @brief   Sets the boot request flag and resets; stage-0 then starts the
+ *          bootloader.
+ *
+ * @return  none
+ */
+void Ocfw_App_Task( void )
+{
+    if(!Ocfw_EnterBoot)
+    {
+        return;
+    }
+    Ocfw_EnterBoot = 0;
+    Delay_Ms(20);
+    printf("Entering bootloader\r\n");
+    if(ocfw_flag_write(OCFW_FLAG_MAGIC) == 0)
+    {
+        Delay_Ms(5);
+        ocfw_system_reset();
+    }
+    printf("Boot flag write failed\r\n");
+}
 /*********************************************************************
  * @fn      USART1_Init
  *
@@ -45,6 +115,10 @@ void Hardware( void )
     /* PA4 now drives the VCTCXO tune node (shared with ADF4002 CP): keep it
      * high-Z from the first instruction until the Zynq selects mode 2. */
     VCXO_Init();
+
+    Ocfw_AppStatus = ocfw_app_status(1);
+    printf("OmniCore bridge " OMNICORE_BRIDGE_VERSION_STR " (" OMNICORE_BUILD_ID ") app_status=0x%02x boot=0x%06x\r\n",
+           (unsigned)Ocfw_AppStatus, (unsigned)ocfw_boot_version());
 
     /* Disable SWD */
     RCC_HB2PeriphClockCmd(RCC_HB2Periph_AFIO, ENABLE);
@@ -114,4 +188,5 @@ void UART_Proc( void )
     UART1_Bridge_Task();
     VCXO_Task();
     USB_Debug_Task();
+    Ocfw_App_Task();
 }

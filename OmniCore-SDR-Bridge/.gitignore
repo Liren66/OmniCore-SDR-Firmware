@@ -3,3 +3,6 @@ obj/
 
 # MounRiver Studio editor state and machine-specific debug launch config
 .mrs/
+
+# Command-line build output (make)
+build/

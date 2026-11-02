@@ -47,6 +47,9 @@ extern void UHSIF_Para_Init( void );
 extern void Hardware( void );
 extern void UART_Proc( void );
 extern void USART1_Init(uint32_t baudrate);
+
+/* Firmware update (ocfw.h): runs a deferred ENTER_BOOT request. */
+extern void Ocfw_App_Task( void );
 #ifdef __cplusplus
 }
 #endif

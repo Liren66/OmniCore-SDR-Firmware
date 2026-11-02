@@ -13,6 +13,14 @@
 
 #include "ch32h417.h"
 #include "usb_desc.h"
+#include "fw_version.h"
+
+/* bcdDevice carries the running firmware version (see fw_version.h). */
+#ifdef OMNICORE_BOOTLOADER
+#define USB_BCD_DEVICE  OMNICORE_VERSION_BCD(OMNICORE_BOOT_VERSION_MAJOR, OMNICORE_BOOT_VERSION_MINOR, OMNICORE_BOOT_VERSION_PATCH)
+#else
+#define USB_BCD_DEVICE  OMNICORE_VERSION_BCD(OMNICORE_BRIDGE_VERSION_MAJOR, OMNICORE_BRIDGE_VERSION_MINOR, OMNICORE_BRIDGE_VERSION_PATCH)
+#endif
 
 /* Device Descriptor */
 const uint8_t  MyDevDescr[ ] =
@@ -26,7 +34,7 @@ const uint8_t  MyDevDescr[ ] =
     DEF_USBD_UEP0_SIZE,                                     // bMaxPacketSize0
     (uint8_t)DEF_USB_VID, (uint8_t)( DEF_USB_VID >> 8 ),    // idVendor
     (uint8_t)DEF_USB_PID, (uint8_t)( DEF_USB_PID >> 8 ),    // idProduct
-    DEF_IC_PRG_VER, 0x00,                                   // bcdDevice
+    (uint8_t)USB_BCD_DEVICE, (uint8_t)(USB_BCD_DEVICE >> 8), // bcdDevice: firmware version
     0x01,                                                   // iManufacturer
     0x02,                                                   // iProduct
     0x03,                                                   // iSerialNumber
@@ -104,7 +112,7 @@ const uint8_t SS_DeviceDescriptor[ ] =
     0x09,                                                   // bMaxPacketSize0
     (uint8_t)DEF_USB_VID, (uint8_t)(DEF_USB_VID >> 8),      // idVendor
     (uint8_t)DEF_USB30_PID, (uint8_t)(DEF_USB30_PID >> 8),  // idProduct
-    DEF_IC_PRG_VER, 0x00,                                   // bcdDevice
+    (uint8_t)USB_BCD_DEVICE, (uint8_t)(USB_BCD_DEVICE >> 8), // bcdDevice: firmware version
     0x01,                                                   // iManufacturer
     0x02,                                                   // iProduct
     0x03,                                                   // iSerialNumber
@@ -167,6 +175,20 @@ const uint8_t MyManuInfo[] =
     'o', 0x00, 'r', 0x00, 'e', 0x00
 };
 /*String Descriptor Product*/
+#ifdef OMNICORE_BOOTLOADER
+const uint8_t MyProdInfo[] =
+{
+    0x30, 0x03,
+    'O', 0x00, 'm', 0x00, 'n', 0x00,
+    'i', 0x00, 'C', 0x00,
+    'o', 0x00, 'r', 0x00, 'e', 0x00,
+    ' ', 0x00,
+    'S', 0x00, 'D', 0x00, 'R', 0x00,
+    ' ', 0x00,
+    'B', 0x00, 'o', 0x00, 'o', 0x00, 't', 0x00, 'l', 0x00, 'o', 0x00,
+    'a', 0x00, 'd', 0x00, 'e', 0x00, 'r', 0x00
+};
+#else
 const uint8_t MyProdInfo[] =
 {
     0x1A, 0x03,
@@ -176,6 +198,7 @@ const uint8_t MyProdInfo[] =
     ' ', 0x00,
     'S', 0x00, 'D', 0x00, 'R', 0x00
 };
+#endif
 
 /*String Descriptor Serial*/
 uint8_t MySerNumInfo[] =

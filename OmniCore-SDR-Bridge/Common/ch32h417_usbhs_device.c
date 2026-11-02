@@ -16,6 +16,8 @@
 #include "usbss_uart1_bridge.h"
 #include "usb_ep3_debug.h"
 #include "stream_diag.h"
+#include "hardware.h"
+#include "ocfw.h"
 /******************************************************************************/
 /* Variable Definition */
 /* test mode */
@@ -54,6 +56,9 @@ __attribute__((aligned(4))) uint8_t USBHS_EP0_Buf[DEF_USBD_UEP0_SIZE];
 /* Diagnostic pages are 256/512 bytes; EP0 sends them in 64-byte pieces. */
 static __attribute__((aligned(4))) uint8_t USBHS_Diag_Buf[512];
 static uint8_t USBHS_EP0_ZLP;
+/* Firmware update OUT data stage (ocfw.h), reassembled from 64-byte packets. */
+static uint8_t USBHS_Ocfw_Out, USBHS_Ocfw_Tog;
+static uint16_t USBHS_Ocfw_Got;
 
 /* Interrupt Service Routine Declaration*/
 void USBHS_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));
@@ -209,6 +214,12 @@ void USBHS_Device_Init(FunctionalState sta)
         USBSS_DevEnumStatus = 0;
         USBHS_DevConfig = USBHS_DevEnumStatus = 0;
         USBHS_RCC_Init(ENABLE);
+#ifdef OMNICORE_BOOTLOADER
+        /* USB2 D+/D- are PB8/PB9, shared with SWCLK/SWDIO. The application
+         * releases SWD itself; the bootloader only gets here when USB3 failed. */
+        RCC_HB2PeriphClockCmd(RCC_HB2Periph_AFIO, ENABLE);
+        GPIO_PinRemapConfig(GPIO_Remap_SWJ_Disable, ENABLE);
+#endif
         USBHSD->CONTROL = USBHS_UD_RST_LINK | USBHS_UD_PHY_SUSPENDM;
         USBHSD->INT_EN = USBHS_UDIE_BUS_RST | USBHS_UDIE_SUSPEND | USBHS_UDIE_BUS_SLEEP | USBHS_UDIE_LPM_ACT | USBHS_UDIE_TRANSFER | USBHS_UDIE_LINK_RDY;
         USBHS_Device_Endp_Init();
@@ -237,6 +248,7 @@ void USBHS_Device_Init(FunctionalState sta)
 void USBHS_IRQHandler(void)
 {
     uint8_t intflag, intst, errflag;
+    uint8_t ocfw_ack = 0;
     uint16_t len;
     uint8_t endp_num;
 
@@ -264,6 +276,7 @@ void USBHS_IRQHandler(void)
                     len = 0;
                     errflag = 0;
                     USBHS_EP0_ZLP = 0;
+                    USBHS_Ocfw_Out = 0;
                     if((USBHS_SetupReqType & USB_REQ_TYP_MASK) != USB_REQ_TYP_STANDARD)
                     {
                         /*
@@ -276,7 +289,20 @@ void USBHS_IRQHandler(void)
                         * 失败：
                         *   len 为 0，交给后面的公共代码返回 STALL。
                         */
-                        if(USBHS_SetupReqType == 0xC0 && USBHS_SetupReqCode == 0xD0 &&
+                        if(OCFW_IS_REQUEST(USBHS_SetupReqType, USBHS_SetupReqCode))
+                        {
+                            /* Firmware update (ocfw.h); OUT data is collected below. */
+                            if(Ocfw_Setup(USBHS_SetupReqType, USBHS_SetupReqCode, USBHS_SetupReqValue,
+                                          USBHS_SetupReqIndex, USBHS_SetupReqLen, USBHS_Diag_Buf, &len))
+                            {
+                                pUSBHS_Descr = USBHS_Diag_Buf;
+                                ocfw_ack = 1;
+                                USBHS_Ocfw_Out = !(USBHS_SetupReqType & DEF_UEP_IN) && USBHS_SetupReqLen;
+                                USBHS_Ocfw_Got = 0;
+                                USBHS_Ocfw_Tog = USBHS_UEP_R_TOG_DATA1;
+                            }
+                        }
+                        else if(USBHS_SetupReqType == 0xC0 && USBHS_SetupReqCode == 0xD0 &&
                            USBHS_SetupReqValue <= 2 && USBHS_SetupReqIndex <= 16 && USBHS_SetupReqLen)
                         {
                             len = StreamDiag_Read(USBHS_Diag_Buf, USBHS_SetupReqIndex, USBHS_SetupReqValue);
@@ -291,7 +317,10 @@ void USBHS_IRQHandler(void)
 
                         if(len == 0)
                         {
-                            errflag = 0xFF;
+                            if(!ocfw_ack)
+                            {
+                                errflag = 0xFF;
+                            }
                         }
                         else
                         {
@@ -737,11 +766,36 @@ void USBHS_IRQHandler(void)
                 /* end-point 0 data out interrupt */
                 else
                 {
+                    uint8_t rx_ctrl = USBHSD->UEP0_RX_CTRL;
                     USBHSD->UEP0_RX_CTRL = USBHS_UEP_R_RES_NAK;  // clear
                     len = USBHSD->UEP0_RX_LEN;
-
                     /* if any processing about rx, set it here */
-                    if((USBHS_SetupReqType & USB_REQ_TYP_MASK) != USB_REQ_TYP_STANDARD)
+                    if(USBHS_Ocfw_Out)
+                    {
+                        /* Firmware update data; a toggle mismatch is a retry. */
+                        if(rx_ctrl & USBHS_UEP_R_TOG_MATCH)
+                        {
+                            if(len > USBHS_SetupReqLen)
+                            {
+                                len = USBHS_SetupReqLen;
+                            }
+                            memcpy(Ocfw_OutBuffer() + USBHS_Ocfw_Got, USBHS_EP0_Buf, len);
+                            USBHS_Ocfw_Got += len;
+                            USBHS_SetupReqLen -= len;
+                            USBHS_Ocfw_Tog ^= USBHS_UEP_R_TOG_DATA1;
+                        }
+                        if(USBHS_SetupReqLen && len == DEF_USBD_UEP0_SIZE)
+                        {
+                            USBHSD->UEP0_RX_CTRL = USBHS_Ocfw_Tog | USBHS_UEP_R_RES_ACK;
+                        }
+                        else
+                        {
+                            USBHS_Ocfw_Out = 0;
+                            USBHS_SetupReqLen = 0;
+                            Ocfw_OutDone(USBHS_Ocfw_Got);
+                        }
+                    }
+                    else if((USBHS_SetupReqType & USB_REQ_TYP_MASK) != USB_REQ_TYP_STANDARD)
                     {
                         USBHS_SetupReqLen = 0;
                         /* Non-standard request end-point 0 Data download */
