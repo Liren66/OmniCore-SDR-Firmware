@@ -29,6 +29,49 @@ CH32 桥接固件 **1.0.0** 起带版本号和 USB 升级 Bootloader，之后的
 Windows 下可用 `Get-FileHash .\BOOT.bin, .\Merge.bin, .\*.ocfw, .\FIDI_EEPROM_Download_Tool.zip -Algorithm SHA256` 与校验文件比对。
 早于 1.0.0 的 CH32 固件没有 Bootloader，需要先用 WCH-Link 烧一次 `Merge.bin`，之后即可走 USB 升级。
 
+### 升级 CH32 桥接固件
+
+**第 1 步：确认设备当前固件。** 安装 [OmniCore Host](https://github.com/Liren66/OmniCore-SDR-Host/releases) 0.5.0 或更高版本，
+关闭其他正在使用 SDR 的软件，然后运行：
+
+```bash
+och firmware info
+```
+
+| 显示 | 含义 | 下一步 |
+|---|---|---|
+| `Mode: application`，`Bootloader: 1.0.0` 或更高 | 已有 Bootloader | 直接做第 3 步 |
+| `Mode: legacy`，或 `Bootloader: none` | 旧固件，或只烧过 MounRiver 调试镜像 | 先做第 2 步（只需一次） |
+| `Mode: bootloader` | 设备停在 Bootloader（例如上次升级被中断） | 直接做第 3 步 |
+
+**第 2 步（只需一次）：用 WCH-Link 烧录 `Merge.bin`。**
+
+1. 将 WCH-Link 的 SWDIO/SWCLK 接到 CH32 的 PB9/PB8。这两个引脚同时是 Type-C 口的 USB2 D-/D+，
+   需要使用把 D+/D- 引出到 WCH-Link 的线缆或测试点。
+2. 用 MounRiver Studio 2 的下载工具或 WCH-LinkUtility，芯片选 CH32H417，文件选 `Merge.bin`，
+   起始地址 `0x08000000`，下载并校验。从源码构建时也可在 `OmniCore-SDR-Bridge/` 中运行 `make flash`。
+3. 桥接固件启动 3 秒后会把这两个引脚交给 USB2，WCH-Link 随之无法连接。已装 1.0.0 及以上固件时，
+   先运行 `och firmware enter` 让设备进入 Bootloader（走 USB3 时不占用 SWD），再下载；
+   旧固件需在上电后 3 秒内开始下载。
+4. 下载完成后恢复正常的 USB 连接，运行 `och firmware info`，应显示 `Bootloader: 1.0.0`。
+
+**第 3 步：通过 USB 升级。** 从 Release 下载 `OmniCore-Bridge-<版本>.ocfw`，运行：
+
+```bash
+och firmware update OmniCore-Bridge-<版本>.ocfw
+```
+
+依次显示 Entering bootloader、Erasing、Writing、Verifying、Restarting，约 5 秒后提示
+`Bridge firmware <版本> installed.`。升级过程中不要拔线、断电或关闭窗口。
+多台设备时加 `--serial <序列号>`（序列号见 `och find`）；`och firmware check FILE.ocfw` 可先离线校验文件。
+
+**中断与恢复。**
+
+- 升级中途断电、拔线或程序被关闭：重新连接后再执行一次 `och firmware update` 即可，设备会停在 Bootloader 等待。
+- 设备停在 Bootloader、不想升级：运行 `och firmware boot` 回到原有应用。
+- 设备处于 Bootloader 时，`och info` 和收发命令会提示先用 `och firmware`，这是正常现象。
+- Windows 驱动和 Linux udev 规则无需改动：Bootloader 使用与应用相同的 USB 标识。
+
 USB 设备标识为 `1a86:5537`：EP1 IN/OUT 传输 IQ 数据，EP2 IN/OUT 承载 USART1 控制通道，
 EP3 IN 输出诊断信息。桥接固件、Bootloader 与 USB 升级协议详见 [Bridge README](OmniCore-SDR-Bridge/README.md)。
 
