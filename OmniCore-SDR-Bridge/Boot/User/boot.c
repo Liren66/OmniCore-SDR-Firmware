@@ -56,7 +56,7 @@ static uint8_t Host_Configured(void)
  */
 void Boot_Init(void)
 {
-    Boot_AppStatus = ocfw_app_status(1);
+    Boot_AppStatus = ocfw_refresh(1);
 }
 
 static uint8_t Program(uint32_t offset, const uint32_t *data, uint32_t length)
@@ -77,7 +77,7 @@ static uint8_t Do_Erase(void)
     {
         return OCFW_ERR_FLASH;
     }
-    Boot_AppStatus = ocfw_app_status(0);
+    Boot_AppStatus = ocfw_refresh(0);
     if(Boot_AppStatus & (OCFW_APP_PROGRAMMED | OCFW_APP_HEADER_OK))
     {
         return OCFW_ERR_FLASH;
@@ -159,7 +159,7 @@ static uint8_t Do_Commit(void)
         return err;
     }
     Erased = 0;
-    Boot_AppStatus = ocfw_app_status(1);
+    Boot_AppStatus = ocfw_refresh(1);
     return (Boot_AppStatus & OCFW_APP_IMAGE_OK) ? OCFW_ERR_NONE : OCFW_ERR_CRC;
 }
 
@@ -181,7 +181,6 @@ void Boot_Task(void)
     if(!flag_cleared && Host_Configured())
     {
         BOOT_TRACE(BOOT_TRACE_CONFIGURED);
-        Delay_Ms(200);
         BOOT_TRACE(BOOT_TRACE_FLAG_CLEAR);
         ocfw_flag_clear();
         BOOT_TRACE(BOOT_TRACE_FLAG_DONE);
@@ -304,7 +303,7 @@ static uint16_t Boot_Info(uint8_t *out)
 {
     ocfw_info_t *info = (ocfw_info_t *)out;
 
-    ocfw_fill_info(info, OCFW_MODE_BOOT, Boot_AppStatus);
+    ocfw_fill_info(info, OCFW_MODE_BOOT);
     info->state = Boot_State;
     info->error = Boot_Error;
     info->progress = Boot_Progress;

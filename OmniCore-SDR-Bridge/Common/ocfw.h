@@ -145,7 +145,12 @@ const ocfw_header_t *ocfw_app_header(void);
 uint32_t ocfw_app_status(int check_image);
 int ocfw_boot_requested(void);
 uint32_t ocfw_boot_version(void);
-void ocfw_fill_info(ocfw_info_t *info, uint8_t mode, uint32_t app_status);
+/* ocfw_refresh() reads flash and caches the application status, versions
+ * and bootloader version (main loop only, never during flash operations from
+ * the USB interrupt). ocfw_fill_info() builds the 0xB1 reply from the cache,
+ * so the interrupt never touches flash while it is being erased. */
+uint32_t ocfw_refresh(int check_image);
+void ocfw_fill_info(ocfw_info_t *info, uint8_t mode);
 int ocfw_flag_write(uint32_t value);
 int ocfw_flag_clear(void);
 void ocfw_system_reset(void) __attribute__((noreturn));

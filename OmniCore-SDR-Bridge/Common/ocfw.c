@@ -73,18 +73,28 @@ uint32_t ocfw_boot_version(void)
     return id->magic == OCFW_BOOTID_MAGIC ? id->version : 0;
 }
 
-void ocfw_fill_info(ocfw_info_t *info, uint8_t mode, uint32_t app_status)
-{
-    const ocfw_header_t *h = ocfw_app_header();
+static volatile uint32_t Cached_AppStatus, Cached_AppVersion, Cached_BootVersion;
 
+uint32_t ocfw_refresh(int check_image)
+{
+    uint32_t status = ocfw_app_status(check_image);
+
+    Cached_AppVersion = (status & OCFW_APP_HEADER_OK) ? ocfw_app_header()->fw_version : 0;
+    Cached_BootVersion = ocfw_boot_version();
+    Cached_AppStatus = status;
+    return status;
+}
+
+void ocfw_fill_info(ocfw_info_t *info, uint8_t mode)
+{
     memset(info, 0, sizeof(*info));
     info->magic = OCFW_INFO_MAGIC;
     info->info_version = OCFW_INFO_VERSION;
     info->mode = mode;
     info->running_version = (mode == OCFW_MODE_BOOT) ? OMNICORE_BOOT_VERSION : OMNICORE_BRIDGE_VERSION;
-    info->boot_version = ocfw_boot_version();
-    info->app_version = (app_status & OCFW_APP_HEADER_OK) ? h->fw_version : 0;
-    info->app_status = app_status;
+    info->boot_version = Cached_BootVersion;
+    info->app_version = Cached_AppVersion;
+    info->app_status = Cached_AppStatus;
     info->app_addr = OCFW_APP_ADDR;
     info->app_max_size = OCFW_APP_MAX_SIZE;
     info->chunk_max = OCFW_CHUNK_MAX;

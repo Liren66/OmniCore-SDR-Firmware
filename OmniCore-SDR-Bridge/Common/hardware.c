@@ -21,7 +21,6 @@
 #include "ocfw.h"
 
 static volatile uint8_t Ocfw_EnterBoot;
-static uint32_t Ocfw_AppStatus;
 
 /*********************************************************************
  * @fn      Ocfw_Setup
@@ -39,7 +38,7 @@ uint8_t Ocfw_Setup( uint8_t type, uint8_t request, uint16_t value, uint16_t inde
     (void)index;
     if(type == 0xC0 && request == OCFW_REQ_INFO && length)
     {
-        ocfw_fill_info((ocfw_info_t *)in, OCFW_MODE_APP, Ocfw_AppStatus);
+        ocfw_fill_info((ocfw_info_t *)in, OCFW_MODE_APP);
         *in_len = sizeof(ocfw_info_t);
         return 1;
     }
@@ -116,9 +115,8 @@ void Hardware( void )
      * high-Z from the first instruction until the Zynq selects mode 2. */
     VCXO_Init();
 
-    Ocfw_AppStatus = ocfw_app_status(1);
     printf("OmniCore bridge " OMNICORE_BRIDGE_VERSION_STR " (" OMNICORE_BUILD_ID ") app_status=0x%02x boot=0x%06x\r\n",
-           (unsigned)Ocfw_AppStatus, (unsigned)ocfw_boot_version());
+           (unsigned)ocfw_refresh(1), (unsigned)ocfw_boot_version());
 
     /* Disable SWD */
     RCC_HB2PeriphClockCmd(RCC_HB2Periph_AFIO, ENABLE);
