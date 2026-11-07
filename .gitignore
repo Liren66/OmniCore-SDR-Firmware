@@ -33,6 +33,7 @@ ip_repo/**/*.xpr
 ip_repo/**/*.srcs/
 ip_repo/user/CH32H417_IP/managed_ip_project/
 ip_repo/**/BOARD_CTRL_AXI_1.0/build/
+ip_repo/**/OC_SYNC_AXI_1.0/build/
 
 # CH32H417_IP sub-IPs: keep only the .xci, Vivado regenerates the rest
 ip_repo/**/CH32H417_IP_1.0/src/*/*

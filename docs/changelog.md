@@ -13,6 +13,15 @@
 
 `BOOT.bin` 与 OmniCore Host 必须按上表配套；CH32 桥接固件对数据内容透明，与 Zynq 固件版本无关。
 
+## 开发中：多板同步（分支 `feature/multi-sync`，SDK `SDK_CMD_1.2_20261107_SYNC`）
+
+位流与 Zynq 应用都有更新，CH32 桥接固件不变；`CH32H417_IP` 仍为 1.3。配套 OmniCore Host 0.7.0（`och sync`）。
+
+- **FPGA**：新增 IP `OC_SYNC_AXI` 1.0（`0x43C30000`）。REF_OUT（T9→J13）由 CLK_FB_FPGA（H17）四分频输出 10 MHz；TRIG（Y6→J9）支持命令、周期、在 PPS 时触发；AD9361_SYNC（U20）与 PPS_EXT 的沿计数和间隔测量；时间基准的 PPS 输入可在 PPS_EXT 和 AD9361_SYNC 之间切换。时序收敛：WNS +0.217 ns，WHS +0.036 ns。
+- **SDK**：新增 `sync_status?`、`ref_out=`、`trig_*`、`sync_loopback=`、`sync_clear!`、`mcs_step=`、`mcs_run!`、`time_source=sync` 和 `EVT type=sync_in`。上电默认关闭输出，时间基准 PPS 仍取 PPS_EXT，原有行为不变。
+- **已测**（单板、无外部参考）：IP 仿真通过；`och sync --loopback --no-mcs --monitor 1` 时间在 TRIG 沿装载，1 s 周期下 SYNC 间隔恒为 40000000，相邻沿的样点时间相差恰好 30720000；MCS 0–5 步与 `mcs_run!` 后，`hw_timestamp_test` 通过，bench 2T2R 44、2T1R 58、1T2R 58.5、2RX 61.44 MS/s 均无故障。
+- **未测**：需要两块以上的板子才能验证 REF_OUT 波形与从板锁定、线缆上的 SYNC、MCS 的实际对齐效果，以及公共参考模式。
+
 ## v2026.11.07.1：过载事件合并
 
 只更新 Zynq 应用（`BOOT.bin`），位流与 CH32 桥接固件不变。

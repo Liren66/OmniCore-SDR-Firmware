@@ -3,7 +3,8 @@
  * time_now? / time_now=<ticks>        read / load the sample counter now
  * time_next_pps=<ticks>               load at the next PPS edge of the source
  * time_last_pps?                      time of the first sample after the last PPS
- * time_source? / =none|external|internal (0/1/2; internal = AD9361 CLK_OUT / 40e6)
+ * time_source? / =none|external|internal|sync (0/1/2/3; internal = AD9361 CLK_OUT / 40e6,
+ *                                    sync = AD9361_SYNC via OC_SYNC_AXI, see sdr_sync.c)
  * time_status? / time_invalidate!
  * USB transport is always framed: 16-byte header + 16368-byte payload per 16 KiB block.
  * rx_timed? / =0|1                    RX waits for rx_stream= (requires framing)
@@ -15,6 +16,7 @@
  * most one line per 250 ms with count=<n> first_block=<b> first_time=<ticks>.
  */
 #include "sdr_time.h"
+#include "sdr_sync.h"
 #include "sdr_runtime.h"
 #include "console.h"
 #include "ad9361_api.h"
@@ -31,9 +33,11 @@ static unsigned rx_timed, source;
 static uint32_t valid_rate, event_seq, events_total, events_lost;
 static uint64_t next_rate_check;
 
+/* "sync": the time base's external PPS input is switched to AD9361_SYNC by
+ * OC_SYNC_AXI (time_source=sync), so every board loads at the shared TRIG. */
 static const char *source_name(unsigned s)
 {
-    return s == CH32H417_IP_PPS_EXTERNAL ? "external" :
+    return s == CH32H417_IP_PPS_EXTERNAL ? (sdr_sync_pps_is_sync() ? "sync" : "external") :
            s == CH32H417_IP_PPS_INTERNAL ? "internal" : "none";
 }
 
@@ -142,7 +146,7 @@ static int time_load(unsigned code, uint64_t value)
     char a[21];
     int rc;
     if (code == CH32H417_IP_TIME_NEXT_PPS && source == CH32H417_IP_PPS_NONE)
-        return sdr_command_error("time_next_pps_requires time_source=external|internal", -1);
+        return sdr_command_error("time_next_pps_requires time_source=external|internal|sync", -1);
     rc = CH32H417_IP_TimeCommand(tb, code, source, value);
     if (rc)
         return sdr_command_error("time_command_timeout radio_clock_stopped?", rc);
@@ -225,9 +229,15 @@ int sdr_time_execute(const char *line)
         if (!strncmp(p, "none", 4) || !strncmp(p, "0", 1)) s = CH32H417_IP_PPS_NONE;
         else if (!strncmp(p, "external", 8) || !strncmp(p, "1", 1)) s = CH32H417_IP_PPS_EXTERNAL;
         else if (!strncmp(p, "internal", 8) || !strncmp(p, "2", 1)) s = CH32H417_IP_PPS_INTERNAL;
-        else return sdr_command_error("time_source_requires none|external|internal", -1);
+        else if (!strncmp(p, "sync", 4) || !strncmp(p, "3", 1)) s = 3U;
+        else return sdr_command_error("time_source_requires none|external|internal|sync", -1);
         if (need_capable())
             return -1;
+        if (sdr_sync_select_pps(s == 3U))
+            return sdr_command_error(sdr_sync_capable() ? "sync_apply_timeout ref40_absent?"
+                                                        : "sync_unsupported_fpga", -1);
+        if (s == 3U)
+            s = CH32H417_IP_PPS_EXTERNAL;
         if (CH32H417_IP_TimeCommand(tb, 0, s, 0))
             return sdr_command_error("time_command_timeout", -1);
         source = s;
@@ -459,7 +469,7 @@ void sdr_time_service(void)
 void sdr_time_help(void)
 {
     console_print(
-        "Time: time_now?/time_now=<ticks>, time_next_pps=<ticks>, time_last_pps?, time_source=none|external|internal, time_status?, time_invalidate!; 1 tick = 1 sample.\n");
+        "Time: time_now?/time_now=<ticks>, time_next_pps=<ticks>, time_last_pps?, time_source=none|external|internal|sync, time_status?, time_invalidate!; 1 tick = 1 sample.\n");
     console_print(
         "Framed USB (16 B header + 16368 B payload per 16 KiB block, always on): rx_timed=0|1, rx_stream=now|<ticks> <nsamp>, rx_stream_stop!; EVT src=fpga_time reports TX ack/late/underflow and RX gaps with sample time.\n");
 }

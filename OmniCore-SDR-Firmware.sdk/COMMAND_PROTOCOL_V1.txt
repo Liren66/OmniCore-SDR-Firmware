@@ -299,3 +299,13 @@ CH32 环路：上电/复位 PA4 高阻；模式2 首次进入 DAC=2048（与偏�
   TRACK 为相位 PI（tau=15s，zeta=0.707，DAC 按 1Hz 一阶 Sigma-Delta 取整；相位超过 2us 只清零相位，不退回 ACQ）；无新样本 3s 进入 HOLD 保持 DAC；PPS 计数跳变 >500ppb 视为毛刺并清零相位。
 能力 pps_adjustment=1 vcxo=1；pps_status? 字段不变（monitor_only=1 adjustment=0 描述计数器本身）。
 固件标识 SDK_CMD_1.0_20261026_VCXO（协议仍为 1.0）；需配套 CH32 Bridge VCXO 版本和 OCH vcxo 支持。
+
+Extension: multi-board sync (SDK_CMD_1.2_20261107_SYNC, FPGA OC_SYNC_AXI 1.0)
+  system_info? adds: sync_capabilities sync=1 ref_out=1 trig=1 mcs=1 time_source_sync=1 version=0x00010000
+  sync_status?  ref_out=0|1  trig_out=0|1  trig_edge=rising|falling  trig_width=<cycles>
+  trig_period=0|<cycles>  trig_pulse!  trig_at_pps!  trig_disarm!  sync_loopback=0|1
+  sync_clear!  mcs_step=0..5  mcs_run!  time_source=sync
+  Cycles are periods of the board's 40 MHz reference (CLK_FB_FPGA).
+  EVT tseq=<n> type=sync_in src=sync count=<total> new=<n> interval=<cycles>  (<= 1 line / 250 ms)
+  Power-up: REF_OUT off, TRIG low, time base PPS = PPS_EXT (unchanged behaviour).
+  See docs/multi-board-sync.md.

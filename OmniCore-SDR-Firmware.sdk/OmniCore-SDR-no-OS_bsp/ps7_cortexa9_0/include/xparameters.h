@@ -249,6 +249,11 @@
 #define XPAR_BOARD_CTRL_AXI_0_HIGHADDR 0x43C2FFFF
 
 
+/* Definitions for peripheral OC_SYNC_AXI_0 */
+#define XPAR_OC_SYNC_AXI_0_BASEADDR 0x43C30000
+#define XPAR_OC_SYNC_AXI_0_HIGHADDR 0x43C3FFFF
+
+
 /******************************************************************/
 
 /* Definitions for driver GPIOPS */

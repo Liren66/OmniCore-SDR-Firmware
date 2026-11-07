@@ -1,7 +1,7 @@
 //Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 //--------------------------------------------------------------------------------
 //Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
-//Date        : Sat Nov  7 02:35:44 2026
+//Date        : Sat Nov  7 22:28:59 2026
 //Host        : HZZ_LAP running 64-bit major release  (build 9200)
 //Command     : generate_target system_wrapper.bd
 //Design      : system_wrapper
@@ -12,6 +12,7 @@
 module system_wrapper
    (AD9361_CLK_OUT,
     AD9361_RESET,
+    AD9361_SYNC,
     CH32H417_AE_n_0,
     CH32H417_AF_n_0,
     CH32H417_CLK_0,
@@ -24,6 +25,9 @@ module system_wrapper
     CH32H417_SEL_0,
     CH32H417_WRNF_0,
     CH32H417_WR_n_0,
+    CLK_FB_FPGA,
+    REF_OUT,
+    TRIG,
     UART_RX,
     UART_TX,
     ddr_addr,
@@ -73,6 +77,7 @@ module system_wrapper
     up_txnrx);
   input AD9361_CLK_OUT;
   output [0:0]AD9361_RESET;
+  input AD9361_SYNC;
   output CH32H417_AE_n_0;
   output CH32H417_AF_n_0;
   input CH32H417_CLK_0;
@@ -85,6 +90,9 @@ module system_wrapper
   input [1:0]CH32H417_SEL_0;
   output CH32H417_WRNF_0;
   input CH32H417_WR_n_0;
+  input CLK_FB_FPGA;
+  output REF_OUT;
+  output TRIG;
   input UART_RX;
   output UART_TX;
   inout [14:0]ddr_addr;
@@ -135,6 +143,7 @@ module system_wrapper
 
   wire AD9361_CLK_OUT;
   wire [0:0]AD9361_RESET;
+  wire AD9361_SYNC;
   wire CH32H417_AE_n_0;
   wire CH32H417_AF_n_0;
   wire CH32H417_CLK_0;
@@ -147,6 +156,9 @@ module system_wrapper
   wire [1:0]CH32H417_SEL_0;
   wire CH32H417_WRNF_0;
   wire CH32H417_WR_n_0;
+  wire CLK_FB_FPGA;
+  wire REF_OUT;
+  wire TRIG;
   wire UART_RX;
   wire UART_TX;
   wire [14:0]ddr_addr;
@@ -198,6 +210,7 @@ module system_wrapper
   system system_i
        (.AD9361_CLK_OUT(AD9361_CLK_OUT),
         .AD9361_RESET(AD9361_RESET),
+        .AD9361_SYNC(AD9361_SYNC),
         .CH32H417_AE_n_0(CH32H417_AE_n_0),
         .CH32H417_AF_n_0(CH32H417_AF_n_0),
         .CH32H417_CLK_0(CH32H417_CLK_0),
@@ -210,6 +223,9 @@ module system_wrapper
         .CH32H417_SEL_0(CH32H417_SEL_0),
         .CH32H417_WRNF_0(CH32H417_WRNF_0),
         .CH32H417_WR_n_0(CH32H417_WR_n_0),
+        .CLK_FB_FPGA(CLK_FB_FPGA),
+        .REF_OUT(REF_OUT),
+        .TRIG(TRIG),
         .UART_RX(UART_RX),
         .UART_TX(UART_TX),
         .ddr_addr(ddr_addr),

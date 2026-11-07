@@ -7,6 +7,7 @@
 #include "sdr_control.h"
 #include "sdr_iq_format.h"
 #include "sdr_time.h"
+#include "sdr_sync.h"
 #include "sdr_runtime.h"
 #include "sdr_fir.h"
 #include "sdr_correction.h"
@@ -259,6 +260,7 @@ int sdr_control_init(void)
     }
     sdr_iq_format_init(&bridge);
     sdr_time_init(&bridge);
+    sdr_sync_init();
     rc = CH32H417_IrqSetupStandalone(&irq, &bridge);
     if (rc) {
         sdr_state.bridge_ready = 0;
@@ -312,6 +314,7 @@ void sdr_control_service(void)
     uint64_t now = CH32H417_IrqNowUs();
     sdr_pps_refresh();
     sdr_time_service();
+    sdr_sync_service();
     action = CH32H417_IrqService(&irq, now);
     for (k = 0; k < 8; ++k) {
         n = irq.Observed[k];
@@ -443,7 +446,7 @@ void sdr_print_usb_status(void)
 void sdr_print_system_info(void)
 {
     console_print(
-        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.1_20261107_EVTCOUNT protocol=1.0 fpga=CH32H417_IP_0x%08lx channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n",
+        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.2_20261107_SYNC protocol=1.0 fpga=CH32H417_IP_0x%08lx channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n",
         (unsigned long)CH32H417_IP_Version(&bridge));
     console_print(
         "capabilities channel=1 tx_gate=1 usb=1 clock_chain=1 supported_fir_ids=0 fir_upload=1 clock_config=1 rx_correction=1 adf4002=1 ref_source=1 external_lo=1 rf_reinit=1 digital_self_test=1 events=1 overflow_policy=framed_gap_event clock_ref_source=adf4002_10MHz_discipline lock_readback=0 pps_monitor=%u pps_adjustment=1 vcxo=1\n",
@@ -452,6 +455,7 @@ void sdr_print_system_info(void)
     console_print("time_capabilities hw_time=%u framing=%u rx_timed=%u tx_timed=%u pps_time=%u tick=sample header_bytes=16 payload_bytes=16368 fpga_version=0x%08lx\n",
                   sdr_time_capable(), sdr_time_capable(), sdr_time_capable(), sdr_time_capable(),
                   sdr_time_capable(), (unsigned long)CH32H417_IP_Version(&bridge));
+    sdr_sync_print_capabilities();
     console_print("rf_capabilities rssi=1 console_baud=%lu console_rx=%s\n",
                   (unsigned long)CONSOLE_BAUD_RATE, console_rx_irq_active() ? "irq" : "polled");
     console_print("board_capabilities board_rgb=%u fan_control=%u core_temp=1\n",

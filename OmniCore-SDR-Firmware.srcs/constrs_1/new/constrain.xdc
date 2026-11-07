@@ -283,3 +283,28 @@ set_max_delay -datapath_only 10.000 -from $ref_domain -to $ps_domain
 # oc_afifo distributed RAM: a word is written at least one write clock and
 # two read clocks (two-flop Gray pointer) before the reader can see it.
 set_max_delay -datapath_only 8.000 -from [get_cells -hierarchical -filter {NAME =~ */CH32H417_Fsm_inst/u_rx_tag/mem_reg* || NAME =~ */CH32H417_Fsm_inst/u_tx_tag/mem_reg* || NAME =~ */CH32H417_Fsm_inst/u_events/mem_reg*}]
+
+# ----------------------------------------------------------------------
+# 2026-11-07 OC_SYNC_AXI multi-board sync (OmniCore_SDR_Rev_V2.8, Clock page).
+# CLK_FB_FPGA: LMK1C1104 copy of the 40 MHz VCTCXO that also feeds AD9361
+# XTALN. H17 = IO_L13N_T2_MRCC_35; the P side (H16) is CH32H417_CLK_0, so the
+# N side has no dedicated clock route (same as AD9361_CLK_OUT on U10).
+# REF_OUT (T9) and TRIG (Y6) are in Bank 13, AD9361_SYNC (U20) in Bank 34.
+# Both banks are physically 1.8 V; keep LVCMOS25 like the existing ports of
+# those banks so Vivado sees one VCCO per bank.
+# ----------------------------------------------------------------------
+set_property PACKAGE_PIN H17 [get_ports CLK_FB_FPGA]
+set_property IOSTANDARD LVCMOS33 [get_ports CLK_FB_FPGA]
+create_clock -period 25.000 -name clk_fb_40m [get_ports CLK_FB_FPGA]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets CLK_FB_FPGA_IBUF]
+set_property PACKAGE_PIN T9 [get_ports REF_OUT]
+set_property PACKAGE_PIN Y6 [get_ports TRIG]
+set_property PACKAGE_PIN U20 [get_ports AD9361_SYNC]
+set_property IOSTANDARD LVCMOS25 [get_ports {REF_OUT TRIG AD9361_SYNC}]
+set_property DRIVE 16 [get_ports {REF_OUT TRIG}]
+set_property SLEW FAST [get_ports {REF_OUT TRIG}]
+set sync40_domain [get_clocks clk_fb_40m]
+set_max_delay -datapath_only 10.000 -from $sync40_domain -to $ps_domain
+set_max_delay -datapath_only 10.000 -from $ps_domain -to $sync40_domain
+# Loopback TRIG level -> time base PPS synchroniser (radio clock).
+set_max_delay -datapath_only 10.000 -from $sync40_domain -to $ad9361_domain

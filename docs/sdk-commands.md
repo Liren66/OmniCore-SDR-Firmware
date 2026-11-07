@@ -107,7 +107,7 @@ Zynq no-OS 程序在 PL UART16550 上提供文本命令行。主机经 CH32 的 
 | `time_now=<ticks>` | `time_now=0 applied=now tick_rate=...` | 立即装载 |
 | `time_next_pps=<ticks>` | `time_next_pps=0 armed=1 source=internal ...` | 下一个 PPS 沿装载 |
 | `time_last_pps?` | `time_last_pps=... pps_count=... source=...` | 上一个 PPS 之后第一个样点的时间 |
-| `time_source?/=` | `time_source=internal` | `none` / `external`（J6）/ `internal`（AD9361 40 MHz 分频） |
+| `time_source?/=` | `time_source=internal` | `none` / `external`（J6）/ `internal`（AD9361 40 MHz 分频）/ `sync`（AD9361_SYNC，J1；1.2 新增） |
 | `time_status?` | `time_status valid=1 armed=0 source=... version=0x01030001 ...` | 全部时间状态 |
 | `time_invalidate!` | `time_invalidate=1` | 作废当前时间 |
 | `rx_timed?/=` | `rx_timed=1` | 1：RX 打开后等待 `rx_stream=` 命令才开始 |
@@ -116,6 +116,27 @@ Zynq no-OS 程序在 PL UART16550 上提供文本命令行。主机经 CH32 的 
 | `bist_loopback?/=0\|1` | `bist_loopback=1 path=ad9361_data_port_tx_to_rx` | AD9361 数据口 TX→RX 回环，仅用于测试 |
 
 ticks 是十进制 64 位无符号整数，1 tick = 1 个样点。详见 [hw-timestamps.md](hw-timestamps.md)。
+
+### 多板同步（1.2 新增）
+
+需要 FPGA 带 OC_SYNC_AXI（`system_info?` 中 `sync_capabilities sync=1`）。周期数均以本板 40 MHz 参考计。
+
+| 命令 | 回复示例 | 说明 |
+|---|---|---|
+| `sync_status?` | `sync_status capable=1 ... ref40_hz=40001008 ... sync_count=9 sync_interval=40000000 ...` | 全部同步状态 |
+| `ref_out=0\|1` | `ref_out=1` | J13 输出 10 MHz |
+| `trig_out=0\|1` | `trig_out=1` | J9 输出 TRIG，0 时保持低电平 |
+| `trig_edge=rising\|falling` | `trig_edge=rising` | TRIG 发出边沿 |
+| `trig_width=<n>` | `trig_width=80` | 脉宽，1–65535 |
+| `trig_period=<n>` | `trig_period=40000000` | 0 关闭，否则 ≥ 1000 且大于脉宽 |
+| `trig_pulse!` | `trig_pulse=1 trig_count=3` | 立即一个脉冲 |
+| `trig_at_pps!` / `trig_disarm!` | `trig_at_pps=armed` | 在下一个 PPS_EXT 沿发一个脉冲 / 取消 |
+| `sync_loopback=0\|1` | `sync_loopback=1` | SYNC 计数与时间基准改用内部 TRIG（单板测试） |
+| `sync_clear!` | `sync_clear=1` | 计数清零 |
+| `mcs_step=0..5` | `mcs_step=2 pulse=trig_required` | AD9361 多片同步的一步，需先停流 |
+| `mcs_run!` | `mcs_run=done pulses=2 ...` | 单板完成 0–5 步，脉冲由本板 TRIG 经 J9→J1 线缆送达 |
+
+收到 SYNC 沿时输出 `EVT tseq=<n> type=sync_in src=sync count=<累计> new=<新增> interval=<周期数>`，最多每 250 ms 一行。详见 [multi-board-sync.md](multi-board-sync.md)。
 
 ### 参考时钟、PPS 与板级
 
@@ -137,8 +158,9 @@ ticks 是十进制 64 位无符号整数，1 tick = 1 个样点。详见 [hw-tim
 ## 3. `system_info?` 中与版本相关的字段
 
 ```text
-firmware=SDK_CMD_1.1_20261107_EVTCOUNT ... fpga=CH32H417_IP_0x01030001
+firmware=SDK_CMD_1.2_20261107_SYNC ... fpga=CH32H417_IP_0x01030001
 time_capabilities hw_time=1 framing=1 ...
+sync_capabilities sync=1 ref_out=1 trig=1 mcs=1 time_source_sync=1 version=0x00010000
 ... transport=framed16k header_bytes=16 payload_bytes=16368 ...
 overflow_policy=framed_gap_event
 ```
