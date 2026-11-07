@@ -1,5 +1,5 @@
 # Repackages CH32H417_IP as version 1.3 (framed transport only, time base).
-# vivado -mode batch -source package_ip_1_2.tcl -tclargs <scratch_dir>
+# vivado -mode batch -source package_ip.tcl -tclargs <scratch_dir>
 set ip_dir [file normalize [file join [file dirname [info script]] ..]]
 set work [file normalize [lindex $argv 0]]
 file mkdir $work

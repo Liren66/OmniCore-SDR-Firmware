@@ -1,23 +1,71 @@
 # OmniCore-SDR-Firmware
 
-OmniCore SDR 的板端固件与下载工具仓库，包含 Zynq-7020 / AD9361 FPGA 与裸机固件、
-CH32H417 USB 3.0 双核桥接固件，以及 FT2232 JTAG 接口的 EEPROM 配置工具。
+OmniCore SDR 的板端固件与下载工具仓库。OmniCore SDR 是一块基于 AD9361 + Zynq-7020 + CH32H417 的 USB 3.0 软件无线电，
+2 收 2 发，最高 61.44 MS/s。本仓库包含：
 
 - **Zynq-7020 + AD9361**：PL 逻辑（Vivado）及 PS 裸机软件（Xilinx SDK，no-OS + FSBL）。器件为 `xc7z020clg400-2`，工具版本为 **Vivado / SDK 2018.3**。
 - **CH32H417 USB 3.0 桥接**：双核 RISC-V（V3F + V5F）固件，通过 UHSIF 连接 Zynq，使用 **MounRiver Studio 2 / RISC-V Embedded GCC15**。
-- **FT2232 JTAG 配置工具**：提供 Windows EEPROM 写入程序、FTDI .NET 库和 EEPROM 镜像，见 [工具说明](FIDI_EEPROM_Download_Tool/README.md)。
+- **FT2232 JTAG 配置工具**：Windows EEPROM 写入程序、FTDI .NET 库和 EEPROM 镜像，见 [工具说明](FIDI_EEPROM_Download_Tool/README.md)。
 
-原 OmniCore-SDR-Bridge 工程已移入本仓库的 `OmniCore-SDR-Bridge/`，作为普通源码目录维护，
-不包含独立 Git 元数据，也不是子模块。Zynq 和 CH32 固件从本仓库统一发布。
+主机端驱动、命令行工具和 C API 在 [OmniCore-SDR-Host](https://github.com/Liren66/OmniCore-SDR-Host)（OCH）仓库。
+
+```text
+ AD9361 ◀─LVDS─▶ Zynq-7020 PL（axi_ad9361 + CH32H417_IP 成帧/时间基准）◀─UHSIF 533 MB/s─▶ CH32H417 ◀─USB 3.0─▶ 主机
+                     PS（no-OS：AD9361 驱动、命令行）◀──── UART 3.125 MBd ────▶ CH32 USART1 ⇄ USB EP2
+```
+
+## 功能
+
+| 类别 | 说明 |
+|---|---|
+| 射频 | AD9361 2R2T（芯片 LO 范围 70 MHz – 6 GHz），采样率最高 61.44 MS/s；支持外部 RX/TX LO（J11/J10）、自定义 FIR、RX DC/IQ 跟踪校正 |
+| 数据传输 | USB 3.0，每个 16 KiB 块带 16 字节头（序号、有效样点数、64 位时间戳），块内整数个样点；12 bit 或 IQ8 格式 |
+| 吞吐 | 1RX、2RX、1T1R、2T2R IQ8 均为 61.44 MS/s；2T1R、1T2R 56 MS/s；2T2R 12 bit 42 MS/s（UHSIF 总线上限） |
+| 时间与同步 | 64 位样点计数器；外部 PPS（J6）或内部 PPS 对时；定时 RX、定时 TX 突发；溢出丢样数精确可知；带时间的 TX 完成/迟到/欠流事件 |
+| 参考时钟 | 板载 40 MHz VCTCXO；可由 ADF4002 锁到 J3 的外部 10 MHz，或由 CH32 按 PPS 闭环调节 |
+| 固件升级 | CH32 桥接固件带 Bootloader，`och firmware update` 通过 USB 升级；Zynq 用 `BOOT.bin` 从 SD 卡或 QSPI 启动 |
+| 板级 | RGB 状态灯、风扇温控、Zynq 温度、RSSI、数字接口自检 |
+
+## 当前版本
+
+**[v2026.11.07](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07)**：Zynq 固件改为**成帧 USB 传输与硬件时间戳**
+（FPGA `CH32H417_IP` 1.3、SDK `SDK_CMD_1.1_20261107_FRAMED`），原 16 KiB 递增起始头模式已删除。CH32 桥接固件仍为 **1.0.0**。
+
+| 组件 | 版本 | 需要的 OmniCore Host |
+|---|---|---|
+| Zynq `BOOT.bin` | v2026.11.07（IP 1.3） | **0.6.0 及以上** |
+| CH32 桥接 | 1.0.0 | USB 升级需 0.5.0 及以上 |
+
+需要旧行为（OCH 0.5.x）请使用 v2026.11.03。历次版本与配套关系见 [更新记录](docs/changelog.md)。
+
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | 系统框图、数据通路、时钟、UHSIF 带宽、AXI 地址、中断、关键引脚 |
+| [docs/hw-timestamps.md](docs/hw-timestamps.md) | 时间基准、成帧格式、定时 RX/TX、寄存器、多机同步、实测与吞吐对比 |
+| [docs/sdk-commands.md](docs/sdk-commands.md) | 当前 SDK 命令、事务信封、异步事件、典型流程 |
+| [docs/build.md](docs/build.md) | 仿真、IP 打包、位流、SDK、BOOT.bin、JTAG 加载、ILA 调试、发布清单 |
+| [docs/changelog.md](docs/changelog.md) | 版本历史与固件 / 上位机配套表 |
+| [OmniCore-SDR-Bridge/README.md](OmniCore-SDR-Bridge/README.md) | CH32 桥接固件：USB 端点、Flash 布局、Bootloader、升级协议 |
+| [COMMAND_PROTOCOL_V1.txt](OmniCore-SDR-Firmware.sdk/COMMAND_PROTOCOL_V1.txt) | SDK 命令协议的历次扩展记录（含已删除的旧机制） |
+| [FIDI_EEPROM_Download_Tool/README.md](FIDI_EEPROM_Download_Tool/README.md) | FT2232 JTAG 接口 EEPROM 配置 |
+
+## 快速开始
+
+1. 从 [Releases](https://github.com/Liren66/OmniCore-SDR-Firmware/releases) 下载同一版本的附件，核对 `SHA256SUMS.txt`。
+2. 把 `BOOT.bin` 放到 SD 卡启动分区根目录（或写入 QSPI Flash）后上电。
+3. 安装 [OmniCore Host](https://github.com/Liren66/OmniCore-SDR-Host/releases) 0.6.0 及以上，连接 USB 3.0 口，运行：
+
+   ```bash
+   och find
+   och info
+   ```
+
+   `och info` 能打开设备，说明 Zynq 固件与上位机版本配套。
+4. 运行 `och firmware info` 检查 CH32 桥接固件；低于当前版本时按下文升级。
 
 ## 下载与烧录
-
-从 [GitHub Releases](https://github.com/Liren66/OmniCore-SDR-Firmware/releases) 下载同一版本的镜像。
-当前版本为 [v2026.11.07](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07)：
-Zynq 固件改为**成帧 USB 传输与硬件时间戳**（FPGA `CH32H417_IP` 1.3、SDK `SDK_CMD_1.1_20261107_FRAMED`）。
-每个 16 KiB 块带 16 字节头和 64 位样点时间，支持外部/内部 PPS 对时、定时 RX、定时 TX 突发，
-原 16 KiB 递增起始头模式已删除，**需要 OmniCore Host 0.6.0 及以上**，详见 [docs/hw-timestamps.md](docs/hw-timestamps.md)。
-CH32 桥接固件仍为 **1.0.0**（带版本号和 USB 升级 Bootloader，可用 `och firmware update` 通过 USB 更新）。
 
 | 文件 | 对应器件 | 内容与使用方式 |
 |---|---|---|
@@ -30,6 +78,8 @@ CH32 桥接固件仍为 **1.0.0**（带版本号和 USB 升级 Bootloader，可�
 各镜像分别用于对应芯片，不能互换。建议配套更新同一 Release 的镜像。
 Windows 下可用 `Get-FileHash .\BOOT.bin, .\Merge.bin, .\*.ocfw, .\FIDI_EEPROM_Download_Tool.zip -Algorithm SHA256` 与校验文件比对。
 早于 1.0.0 的 CH32 固件没有 Bootloader，需要先用 WCH-Link 烧一次 `Merge.bin`，之后即可走 USB 升级。
+
+调试时也可以不写 SD/Flash，直接经 JTAG 把位流和程序加载到 RAM，掉电即恢复，见 [构建与调试](docs/build.md#8-jtag-加载到-ram不写-flash)。
 
 ### 升级 CH32 桥接固件
 
@@ -77,46 +127,66 @@ och firmware update OmniCore-Bridge-<版本>.ocfw
 USB 设备标识为 `1a86:5537`：EP1 IN/OUT 传输 IQ 数据，EP2 IN/OUT 承载 USART1 控制通道，
 EP3 IN 输出诊断信息。桥接固件、Bootloader 与 USB 升级协议详见 [Bridge README](OmniCore-SDR-Bridge/README.md)。
 
+## 板上接口
+
+| 接口 | 用途 |
+|---|---|
+| USB 3.0 Type-C | 数据与控制（CH32H417，`1a86:5537`） |
+| J3 | 外部 10 MHz 参考输入（ADF4002 驯服板载 40 MHz） |
+| J6 | 外部 PPS 输入（丝印 `10M_EXT`，实际网络为 `PPS_EXT`） |
+| J10 / J11 | TX / RX 外部 LO 输入（频率为 2 × RF） |
+| JTAG（FT2232） | Zynq 调试与下载；FT2232 的 EEPROM 配置工具在 `FIDI_EEPROM_Download_Tool/` |
+| SD 卡 / QSPI | Zynq 启动镜像 `BOOT.bin` |
+
 ## 目录
 
 ```text
 OmniCore-SDR-Firmware.xpr          Vivado 工程
-OmniCore-SDR-Firmware.srcs/        block design（system.bd）、顶层 wrapper、约束
-ip_repo/adi/                     ADI hdl_2018_r2 IP（axi_ad9361、axi_dmac 等）
-ip_repo/user/                    自研 CH32H417_IP 1.3（UHSIF 成帧传输、时间基准）、BOARD_CTRL_AXI
-  .../CH32H417_IP_1.0/sim/       IP 自检仿真（run_sim.sh，Vivado xsim）
-  .../CH32H417_IP_1.0/scripts/   IP 重新打包（package_ip.tcl）
-scripts/                         位流构建（升级 BD 中的 IP、导出 hdf）、JTAG 加载到 RAM
-docs/hw-timestamps.md            成帧格式、时间寄存器、SDK 命令与吞吐对比
+OmniCore-SDR-Firmware.srcs/        block design（system.bd）、顶层 wrapper、约束（constrain.xdc）
+ip_repo/adi/                       ADI hdl_2018_r2 IP（axi_ad9361 等）
+ip_repo/user/CH32H417_IP/ip_repo/
+  CH32H417_IP_1.0/                 自研 CH32H417_IP 1.3（UHSIF 成帧传输、时间基准）
+    src/                           成帧状态机、时间基准、异步 FIFO、跨时钟域握手、FIFO Generator 子 IP
+    hdl/                           IP 顶层与 AXI-Lite 寄存器
+    drivers/                       SDK 驱动（BSP 生成时复制）
+    sim/                           自检仿真（run_sim.sh，Vivado xsim）
+    scripts/                       IP 重新打包（package_ip.tcl）
+  BOARD_CTRL_AXI_1.0/              RGB 灯与风扇 PWM
+scripts/
+  build_time_base_bitstream.tcl    升级 BD 中的 IP、生成位流、导出 hdf 与报告
+  jtag_run.tcl                     JTAG 加载位流与 ELF 到 RAM（不写 Flash）
+docs/                              架构、时间戳、命令、构建与更新记录
 OmniCore-SDR-Firmware.sdk/
-  system_wrapper_hw_platform_0/  硬件平台（hdf、bitstream、ps7_init）
-  OmniCore-SDR-no-OS/             AD9361 驱动、SDK 命令协议和 bootimage/
-  OmniCore-SDR-FSBL/              FSBL
-  *_bsp/                         两个 BSP
-  COMMAND_PROTOCOL_V1.txt        SDK 命令协议说明
+  system_wrapper_hw_platform_0/    硬件平台（hdf、bitstream、ps7_init）
+  OmniCore-SDR-no-OS/              AD9361 驱动、SDK 命令（src/console_commands/）和 bootimage/
+  OmniCore-SDR-FSBL/               FSBL
+  *_bsp/                           两个 BSP
+  COMMAND_PROTOCOL_V1.txt          SDK 命令协议历次扩展记录
 OmniCore-SDR-Bridge/
-  UHSIF_DEVICE.wvsln             MounRiver Studio 2 解决方案（V3F、V5F，调试用）
-  Makefile                      命令行构建三个镜像及 Merge.bin、.ocfw（发布用）
-  V3F/                          V3F 核：stage-0，选择 V5F 启动应用还是 Bootloader
-  V5F/                          V5F 核应用
-  Boot/                         V5F Bootloader（USB 升级）
-  Common/                       共用代码（USB 协议栈、ocfw 升级协议）、链接脚本、libUHSIF.a
-  SRC/                          CH32H417 外设库、内核和启动文件
-  tools/ocfw_pack.py            生成 .ocfw 升级包和 Merge.bin
-FIDI_EEPROM_Download_Tool/       FT2232 JTAG EEPROM 配置程序、FTDI 库与镜像
+  UHSIF_DEVICE.wvsln               MounRiver Studio 2 解决方案（V3F、V5F，调试用）
+  Makefile                         命令行构建三个镜像及 Merge.bin、.ocfw（发布用）
+  V3F/                             V3F 核：stage-0，选择 V5F 启动应用还是 Bootloader
+  V5F/                             V5F 核应用
+  Boot/                            V5F Bootloader（USB 升级）
+  Common/                          共用代码（USB 协议栈、ocfw 升级协议）、链接脚本、libUHSIF.a
+  SRC/                             CH32H417 外设库、内核和启动文件
+  tools/ocfw_pack.py               生成 .ocfw 升级包和 Merge.bin
+FIDI_EEPROM_Download_Tool/         FT2232 JTAG EEPROM 配置程序、FTDI 库与镜像
 ```
 
 ## 重新编译
 
+完整步骤（含仿真、IP 打包、ILA 调试与发布清单）见 [docs/build.md](docs/build.md)。简要流程：
+
 ### Zynq：BOOT.bin
 
-1. 用 Vivado 2018.3 打开 `OmniCore-SDR-Firmware.xpr`。IP 库路径为 `$PPRDIR/ip_repo/adi` 和 `$PPRDIR/ip_repo/user`。
-   block design 的生成产物不在仓库中，Generate Bitstream 时会重新生成。
-2. 修改 PL 后，将新的硬件平台和位流导出到 SDK。以 `OmniCore-SDR-Firmware.sdk` 为工作区启动 SDK，
-   通过 File → Import → Existing Projects 导入两个 BSP、FSBL、no-OS 共四个工程后编译。
-3. `OmniCore-SDR-Firmware.sdk/OmniCore-SDR-no-OS/bootimage/output.bif` 依次打包 FSBL、
-   `system_wrapper.bit` 和 no-OS 应用。BIF 中是绝对路径，clone 到其他位置后需先更新。
-4. 在 SDK 中使用 Create Boot Image，或从仓库根目录在已配置 Xilinx 工具环境的终端中运行：
+1. **位流**：用 Vivado 2018.3 打开 `OmniCore-SDR-Firmware.xpr` 直接 Generate Bitstream，或在命令行运行
+   `vivado -mode batch -source scripts/build_time_base_bitstream.tcl -tclargs <输出目录>`。
+   IP 库路径为 `$PPRDIR/ip_repo/adi` 和 `$PPRDIR/ip_repo/user`；block design 的生成产物不在仓库中，构建时重新生成。
+2. **SDK**：把新的位流和 hdf 导出到 `OmniCore-SDR-Firmware.sdk`，以该目录为工作区启动 SDK，
+   通过 File → Import → Existing Projects 导入两个 BSP、FSBL、no-OS 共四个工程后编译。只改 SDK 代码时可跳过第 1 步。
+3. **打包**：`OmniCore-SDR-no-OS/bootimage/output.bif` 依次打包 FSBL、`system_wrapper.bit` 和 no-OS 应用。
+   BIF 中是绝对路径，clone 到其他位置后需先更新。在 SDK 中使用 Create Boot Image，或在已配置 Xilinx 工具环境的终端中运行：
 
 ```text
 bootgen -image OmniCore-SDR-Firmware.sdk/OmniCore-SDR-no-OS/bootimage/output.bif -arch zynq -o BOOT.bin -w on
@@ -142,13 +212,15 @@ stage-0 遇到已编程的应用照常启动，因此调试下载不受影响。
 
 ## 版本管理与发布
 
-仓库保存源码和工程配置，Firmware 原有提交历史继续保留；Bridge 的历史没有合并到 Firmware 的 Git 历史中。
+原 OmniCore-SDR-Bridge 工程已移入本仓库的 `OmniCore-SDR-Bridge/`，作为普通源码目录维护，
+不包含独立 Git 元数据，也不是子模块；Bridge 的历史没有合并到 Firmware 的 Git 历史中。Zynq 和 CH32 固件从本仓库统一发布。
+
 `.runs`、`.cache`、`.ip_user_files`、block design 生成产物、SDK `.metadata`、`Debug/`、
-Bridge 的 `obj/`、`build/`、`.mrs/` 和本地 `dist/` 发布目录均被忽略。
+Bridge 的 `obj/`、`build/`、`.mrs/`、IP 仿真目录 `sim/xsim_work/` 和本地 `dist/` 发布目录均被忽略。
 `system_wrapper_hw_platform_0/system_wrapper.bit` 是打包输入，保留在仓库中。
 
 预编译的 `BOOT.bin`、`Merge.bin`、`OmniCore-Bridge-<版本>.ocfw`、`FIDI_EEPROM_Download_Tool.zip` 及 `SHA256SUMS.txt` 通过 GitHub Release 附件分发。
-Release 标签对应统一源码版本；发布说明记录镜像来源及验证范围。
+Release 标签（`vYYYY.MM.DD`）对应统一源码版本；发布说明记录镜像来源、上位机版本要求及验证范围。
 
 FT2232 工具以已有二进制及配套文件纳入 Git，本仓库尚未包含其应用程序源码。
 

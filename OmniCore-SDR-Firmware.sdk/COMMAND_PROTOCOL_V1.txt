@@ -1,3 +1,13 @@
+【当前状态说明，2026-11-07，SDK_CMD_1.1_20261107_FRAMED / CH32H417_IP 1.3】
+本文件按时间顺序记录协议 1.0 及其扩展，保留作历史参考。当前命令参考见 docs/sdk-commands.md，
+成帧格式与时间戳见 docs/hw-timestamps.md。以下内容已在 1.1 中删除或改变，不再适用：
+- 第 5 节 TX 软件预填门槛与 ERR usb_tx_not_prefilled：已删除，tx_enable=1 等待 FPGA 报告 TX 开始播放。
+- 第 6 节 RX 溢出后关闭/打开 RX_EN 重同步、rx_restarted/waiting_rx_resync 事件、16384 字节起始头检测：已删除。
+  RX 溢出改为补零结束当前块，下一块带 GAP 标志，并上报 EVT ... type=rx_overflow_gap src=fpga_time。
+- 第 7 节“16 KiB 块边界不一定对齐样本、需保留跨块余数”：不再适用。每块 16 字节头 + 16368 字节载荷，块内为整数个样点。
+- 第 8 节“FPGA 没有版本寄存器”：CH32H417_IP 1.3 在 0x54 提供版本寄存器，system_info? 输出 fpga=CH32H417_IP_0x01030001。
+- STATUS0 的 ADC 溢出（bit0）与 DAC 欠流（bit3）错误位恒为 0，改由带样点时间的 EVT 上报。
+
 OmniCore SDR SDK 命令协议 1.0（2026-10-24）
 
 依据：AD9361_SDR_命令清单与命名规范_v1.0.pdf。

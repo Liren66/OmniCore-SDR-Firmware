@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the CH32H417_IP 1.2 time/framing testbench with Vivado 2018.3 xsim.
+# Runs the CH32H417_IP 1.3 time/framing testbench with Vivado 2018.3 xsim.
 # Usage: run_sim.sh [work_dir]   (default: ./xsim_work next to this script)
 set -euo pipefail
 IP="$(cd "$(dirname "$0")/.." && pwd)"

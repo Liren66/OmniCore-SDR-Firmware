@@ -1,4 +1,4 @@
-# Upgrades CH32H417_IP to 1.2 in system.bd, wires PPS / AD9361 CLK_OUT,
+# Upgrades CH32H417_IP to 1.3 in system.bd, wires PPS / AD9361 CLK_OUT,
 # builds the bitstream and exports system_wrapper.bit + system_wrapper.hdf.
 # vivado -mode batch -source scripts/build_time_base_bitstream.tcl -tclargs <out_dir> [jobs]
 set root [file normalize [file join [file dirname [info script]] ..]]
@@ -12,7 +12,7 @@ set bd [get_files system.bd]
 open_bd_design $bd
 
 set cell [get_bd_cells CH32H417_IP_0]
-# Upgrade also after a revision bump of the same 1.2 version.
+# Upgrade also after a revision bump of the same 1.3 version.
 report_ip_status -name ip_status
 upgrade_ip [get_ips system_CH32H417_IP_0_0]
 set cell [get_bd_cells CH32H417_IP_0]
