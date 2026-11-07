@@ -13,7 +13,8 @@ OmniCore SDR 的 USB 3.0 桥接固件，运行在沁恒 CH32H417（双核 RISC-V
 | EP0 | 标准请求；厂商请求 `0xD0` 诊断，`0xB0`–`0xB5` 固件升级 |
 | EP1 IN/OUT | IQ 数据流 |
 | EP2 IN/OUT | USART1 控制通道（SDK 命令协议） |
-| EP3 IN | 诊断输出 |
+| EP3 IN | 诊断输出（启动日志、查询回复） |
+| EP3 OUT | 诊断查询（应用 1.0.1 起）：一行文本，回复在 EP3 IN，见下文 |
 
 USB 字符串：厂商 `OmniCore`，产品 `OmniCore SDR`（Bootloader 为 `OmniCore SDR Bootloader`），
 序列号 `OmniCore` + 芯片 UID 的 CRC-32（8 位十六进制）。
@@ -21,12 +22,25 @@ USB 字符串：厂商 `OmniCore`，产品 `OmniCore SDR`（Bootloader 为 `Omni
 ## 版本
 
 版本号定义在 [`Common/fw_version.h`](Common/fw_version.h)：桥接应用 `OMNICORE_BRIDGE_VERSION_*`，
-Bootloader `OMNICORE_BOOT_VERSION_*`。当前应用与 Bootloader 均为 **1.0.0**。版本出现在：
+Bootloader `OMNICORE_BOOT_VERSION_*`。当前应用为 **1.0.1**，Bootloader 为 **1.0.0**。版本出现在：
 
 - USB 设备描述符 `bcdDevice`（1.0.0 → `0x0100`，Windows 硬件 ID 中的 `REV_0100`）；
 - 厂商请求 `0xB1`（`och firmware info` / `och info` 显示）；
 - `.ocfw` 升级包头；
-- EP3 启动日志 `OmniCore bridge 1.0.0 (<构建号>)`。
+- EP3 启动日志 `OmniCore bridge 1.0.1 (<构建号>)`。
+
+## EP3 诊断查询（应用 1.0.1 起）
+
+主机向 EP3 OUT（0x03）写一行文本，桥接固件在主循环里执行（不在中断里），回复写进 EP3 IN（0x83）的文本流：
+
+| 查询 | 回复 |
+|---|---|
+| `typec?` | 现场读取 HD3SS3220 寄存器，回复 `HD3SS3220: 08=xx 09=xx 0A=xx`（与上电日志同格式）；失败为 `HD3SS3220: ERR <原因>` |
+| 其他 | `EP3: ERR unknown <查询>` |
+
+- 只在查询时做一次 I2C 读取（约 1 ms），平时不轮询。一次只处理一个查询，答复前 EP3 OUT 保持 NAK。
+- EP3 IN 同时还会有其他日志文字，主机应先读空旧数据再发查询，并只解析之后收到的行（OmniCore Host 0.7.1 即如此）。
+- Bootloader 的描述符不含 EP3 OUT，保持不变。
 
 每次发布 CH32 应用请递增应用版本号。构建号由 Makefile 取 `git describe`，MRS 构建显示 `dev`。
 

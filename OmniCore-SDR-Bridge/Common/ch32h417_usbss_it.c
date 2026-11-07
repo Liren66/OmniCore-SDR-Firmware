@@ -77,6 +77,13 @@ uint8_t USBSS_Endp_Clear_Frature( uint8_t dir_endp )
         USB_Debug_ClearHalt();
         return 0;
     }
+#ifndef OMNICORE_BOOTLOADER
+    if(dir_endp == 0x03)
+    {
+        USB_Debug_ClearHaltOut();
+        return 0;
+    }
+#endif
     if(dir_endp == 0x02 || dir_endp == 0x82)
     {
         UART1_Bridge_ClearHalt(dir_endp);
@@ -715,6 +722,11 @@ void USBSS_IRQHandler( void )
                 case DEF_UEP2: /* OUT-direction switch only */
                     UART1_Bridge_OutIRQ();
                 break;
+#ifndef OMNICORE_BOOTLOADER
+                case DEF_UEP3: /* diagnostic query */
+                    USB_Debug_OutIRQ();
+                break;
+#endif
 
                 /* end-point 1 data out interrupt */
                 case DEF_UEP1:

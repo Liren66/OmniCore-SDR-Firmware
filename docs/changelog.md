@@ -14,6 +14,14 @@
 
 `BOOT.bin` 与 OmniCore Host 必须按上表配套；CH32 桥接固件对数据内容透明，与 Zynq 固件版本无关。
 
+## CH32 桥接 1.0.1：EP3 诊断查询
+
+只更新 CH32 应用（`OmniCore-Bridge-1.0.1.ocfw`），Bootloader 与 Zynq 固件不变。
+
+- **修复**：`och info` 只有上电后第一次能显示 USB-C 3 A。原因是 HD3SS3220 状态只在上电时打印一次到 EP3 日志，第一个读取的主机把它读走后就没有了。
+- **新增 EP3 OUT（0x03）**：主机发送 `typec?`，桥接固件现场读取 HD3SS3220 并在 EP3 IN 回复 `HD3SS3220: 08=.. 09=.. 0A=..`。只在查询时读一次，不轮询。Bootloader 描述符不变。
+- 配套 OmniCore Host 0.7.1；旧版 OCH 仍可用（不使用 EP3 OUT）。
+
 ## v2026.11.07.2：多板同步（SDK `SDK_CMD_1.2_20261107_SYNC`）
 
 位流与 Zynq 应用都有更新，CH32 桥接固件不变；`CH32H417_IP` 仍为 1.3。配套 OmniCore Host 0.7.0（`och sync`）。

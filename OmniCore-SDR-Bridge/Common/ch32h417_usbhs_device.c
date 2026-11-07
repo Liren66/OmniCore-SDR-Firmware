@@ -120,10 +120,21 @@ void USB_TestMode_Deal(void)
 void USBHS_Device_Endp_Init(void)
 {
     USBHSD->UEP_TX_EN = USBHS_UEP0_T_EN | USBHS_UEP1_T_EN | USBHS_UEP2_T_EN | USBHS_UEP3_T_EN;
+#ifndef OMNICORE_BOOTLOADER
+    USBHSD->UEP_RX_EN = USBHS_UEP0_R_EN | USBHS_UEP1_R_EN | USBHS_UEP2_R_EN | USBHS_UEP3_R_EN;
+#else
     USBHSD->UEP_RX_EN = USBHS_UEP0_R_EN | USBHS_UEP1_R_EN | USBHS_UEP2_R_EN;
+#endif
 
     USBHSD->UEP_TX_TOG_AUTO = USBHS_UEP1_T_EN | USBHS_UEP2_T_EN | USBHS_UEP3_T_EN;
+#ifndef OMNICORE_BOOTLOADER
+    USBHSD->UEP_RX_TOG_AUTO = USBHS_UEP1_R_EN | USBHS_UEP2_R_EN | USBHS_UEP3_R_EN;
+    USBHSD->UEP3_RX_SIZE = USBHS_DevMaxPackLen;
+    USBHSD->UEP3_RX_LEN = 0;
+    USBHSD->UEP3_RX_CTRL = USBHS_UEP_R_RES_NAK;
+#else
     USBHSD->UEP_RX_TOG_AUTO = USBHS_UEP1_R_EN | USBHS_UEP2_R_EN;
+#endif
 
     USBHSD->UEP0_MAX_LEN = DEF_USBD_UEP0_SIZE;
     USBHS_DevMaxPackLen = (USBHSD->MIS_ST & USBHS_UDMS_HS_MOD)
@@ -569,6 +580,11 @@ void USBHS_IRQHandler(void)
                                     case(DEF_UEP3 | DEF_UEP_IN):
                                         USB_Debug_ClearHalt();
                                         break;
+#ifndef OMNICORE_BOOTLOADER
+                                    case(DEF_UEP3 | DEF_UEP_OUT):
+                                        USB_Debug_ClearHaltOut();
+                                        break;
+#endif
 
                                     default:
                                         errflag = 0xFF;
@@ -648,6 +664,11 @@ void USBHS_IRQHandler(void)
                                     case(DEF_UEP3 | DEF_UEP_IN):
                                         USBHSD->UEP3_TX_CTRL = (USBHSD->UEP3_TX_CTRL & ~USBHS_UEP_T_RES_MASK) | USBHS_UEP_T_RES_STALL;
                                         break;
+#ifndef OMNICORE_BOOTLOADER
+                                    case(DEF_UEP3 | DEF_UEP_OUT):
+                                        USBHSD->UEP3_RX_CTRL = (USBHSD->UEP3_RX_CTRL & ~USBHS_UEP_R_RES_MASK) | USBHS_UEP_R_RES_STALL;
+                                        break;
+#endif
 
                                     default:
                                         errflag = 0xFF;
@@ -704,6 +725,11 @@ void USBHS_IRQHandler(void)
                                 case(DEF_UEP3 | DEF_UEP_IN):
                                     USBHS_EP0_Buf[0] = ((USBHSD->UEP3_TX_CTRL & USBHS_UEP_T_RES_MASK) == USBHS_UEP_T_RES_STALL);
                                     break;
+#ifndef OMNICORE_BOOTLOADER
+                                case(DEF_UEP3 | DEF_UEP_OUT):
+                                    USBHS_EP0_Buf[0] = ((USBHSD->UEP3_RX_CTRL & USBHS_UEP_R_RES_MASK) == USBHS_UEP_R_RES_STALL);
+                                    break;
+#endif
 
                                 default:
                                     errflag = 0xFF;
@@ -815,6 +841,11 @@ void USBHS_IRQHandler(void)
             case DEF_UEP2:
                 UART1_Bridge_OutIRQ();
                 break;
+#ifndef OMNICORE_BOOTLOADER
+            case DEF_UEP3:
+                USB_Debug_OutIRQ();
+                break;
+#endif
             /* end-point 1 data out interrupt */
             case DEF_UEP1:
                 USBHSD->UEP1_RX_CTRL &= ~USBHS_UEP_R_DONE;

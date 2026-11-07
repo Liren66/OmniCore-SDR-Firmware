@@ -155,6 +155,7 @@ void Hardware( void )
     HD3SS3220_Status typec_status;
 
     ret = HD3SS3220_Init();
+    USB_Debug_EnableTypeC(ret == HD3SS3220_OK);   /* EP3 OUT "typec?" queries */
 
     if (ret == HD3SS3220_OK)
     {
