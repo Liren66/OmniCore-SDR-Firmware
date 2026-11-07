@@ -11,6 +11,8 @@
  *
  * FPGA timing events are printed by sdr_time_service() as
  *   EVT tseq=<n> type=<name> src=fpga_time block=<seq> time=<ticks> lost_before=<0|1>
+ * tx_underflow / rx_overflow_gap bursts are coalesced: the first event, then at
+ * most one line per 250 ms with count=<n> first_block=<b> first_time=<ticks>.
  */
 #include "sdr_time.h"
 #include "sdr_runtime.h"
@@ -314,23 +316,113 @@ static const char *event_name(u32 code)
     }
 }
 
+/* Overload coalescing. A TX starved by a saturated UHSIF bus raises
+ * tx_underflow for every block (~16000/s at 2T2R 12-bit 50 MS/s); printing each at
+ * ~120 B saturates the 3.125 MBd console, delays command replies and lets
+ * the 32-entry FPGA event FIFO overflow. tx_underflow and rx_overflow_gap
+ * therefore print the first event of a burst unchanged, then at most one
+ * summary per COALESCE_US:
+ *   EVT ... type=<name> ... block=<last> time=<last> lost_before=<0|1>
+ *       count=<n> first_block=<b> first_time=<ticks>
+ * count is the number of events folded into that line. A quiet window ends
+ * the burst, so the next event prints immediately again. Other event types
+ * are never throttled; before printing one, pending summaries are flushed so
+ * lines stay in time order. */
+#define COALESCE_US 250000U
+#define COALESCE_KINDS 2
+#define EVENT_POP_MAX 32U   /* FPGA event FIFO depth */
+#define EVENT_PRINT_MAX 4U  /* uncoalesced lines per service call */
+
+typedef struct {
+    u32 code;
+    int active;          /* a line was printed inside the current window */
+    uint64_t deadline;   /* end of the current window (us) */
+    uint32_t count, lost, first_seq, last_seq;
+    uint64_t first_time, last_time;
+} coalesce_state;
+
+static coalesce_state coalesce[COALESCE_KINDS] = {
+    { CH32H417_IP_EV_TX_UNDERFLOW }, { CH32H417_IP_EV_RX_OVERFLOW },
+};
+
+static void print_event(u32 code, uint32_t seq, uint64_t time, uint32_t lost)
+{
+    char a[21];
+    console_print("EVT tseq=%lu type=%s src=fpga_time code=%lu block=%lu time=%s lost_before=%lu\n",
+                  (unsigned long)++event_seq, event_name(code), (unsigned long)code,
+                  (unsigned long)seq, u64s(time, a), (unsigned long)lost);
+}
+
+static void flush_coalesced(coalesce_state *c, uint64_t now)
+{
+    char a[21], b[21];
+    if (!c->count) {
+        c->active = 0;   /* a whole quiet window: burst over */
+        return;
+    }
+    console_print("EVT tseq=%lu type=%s src=fpga_time code=%lu block=%lu time=%s lost_before=%lu count=%lu first_block=%lu first_time=%s\n",
+                  (unsigned long)++event_seq, event_name(c->code), (unsigned long)c->code,
+                  (unsigned long)c->last_seq, u64s(c->last_time, a), (unsigned long)(c->lost != 0),
+                  (unsigned long)c->count, (unsigned long)c->first_seq, u64s(c->first_time, b));
+    c->count = 0;
+    c->lost = 0;
+    c->active = 1;
+    c->deadline = now + COALESCE_US;
+}
+
+static coalesce_state *coalesce_of(u32 code)
+{
+    unsigned i;
+    for (i = 0; i < COALESCE_KINDS; ++i)
+        if (coalesce[i].code == code)
+            return &coalesce[i];
+    return 0;
+}
+
 void sdr_time_service(void)
 {
     CH32H417_IP_Event e;
-    unsigned k;
-    char a[21];
+    coalesce_state *c;
+    unsigned k, printed = 0, i;
     uint64_t now;
     if (!tb || !sdr_state.bridge_ready || !sdr_time_capable())
         return;
-    for (k = 0; k < 4 && CH32H417_IP_PopEvent(tb, &e) == 1; ++k) {
+    now = CH32H417_IrqNowUs();
+    /* Coalesced events cost a register read, so drain the whole FIFO; only
+     * printed lines are bounded per call. */
+    for (k = 0; k < EVENT_POP_MAX && printed < EVENT_PRINT_MAX &&
+                CH32H417_IP_PopEvent(tb, &e) == 1; ++k) {
         ++events_total;
         events_lost += e.Lost;
-        console_print("EVT tseq=%lu type=%s src=fpga_time code=%lu block=%lu time=%s lost_before=%lu\n",
-                      (unsigned long)++event_seq, event_name(e.Code), (unsigned long)e.Code,
-                      (unsigned long)e.Seq, u64s(e.Time, a), (unsigned long)e.Lost);
+        c = coalesce_of(e.Code);
+        if (c && c->active) {
+            if (!c->count) {
+                c->first_seq = e.Seq;
+                c->first_time = e.Time;
+            }
+            ++c->count;
+            c->lost |= e.Lost;
+            c->last_seq = e.Seq;
+            c->last_time = e.Time;
+            continue;
+        }
+        if (!c) {
+            for (i = 0; i < COALESCE_KINDS; ++i)
+                if (coalesce[i].count)
+                    flush_coalesced(&coalesce[i], now);
+        }
+        print_event(e.Code, e.Seq, e.Time, e.Lost);
+        ++printed;
+        if (c) {
+            c->active = 1;
+            c->deadline = now + COALESCE_US;
+        }
     }
+    for (i = 0; i < COALESCE_KINDS; ++i)
+        if (coalesce[i].active && now >= coalesce[i].deadline)
+            flush_coalesced(&coalesce[i], now);
     /* A sample-rate change re-times the counter; the old epoch is invalid. */
-    now = CH32H417_IrqNowUs();
+    now = CH32H417_IrqNowUs();   /* re-read: printing above may have taken ms */
     if (valid_rate && now >= next_rate_check) {
         uint32_t rate = current_rate();
         next_rate_check = now + 250000U;

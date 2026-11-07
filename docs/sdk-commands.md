@@ -52,6 +52,16 @@ Zynq no-OS 程序在 PL UART16550 上提供文本命令行。主机经 CH32 的 
 
 `lost_before=1` 表示事件 FIFO（32 项）曾经溢出，在这一项之前丢过事件。
 
+**过载合并**：`tx_underflow` 与 `rx_overflow_gap` 在过载时可能每块都触发（2T2R 12 位 50 MS/s 超过 UHSIF 约 533 MB/s 时 TX 欠流约 16000 次/秒）。逐条打印会占满 3.125 MBd 控制串口、阻塞命令回复并使事件 FIFO 溢出，因此 SDK 对这两类事件按类型合并：
+
+- 一串事件的第一条照常立即输出；
+- 之后每 250 ms 最多输出一条汇总行，在原格式后追加字段：
+  `EVT tseq=<n> type=tx_underflow src=fpga_time code=2 block=<最后块> time=<最后时间> lost_before=<0|1> count=<N> first_block=<首块> first_time=<首时间>`
+  `count` 为本行代表的事件数（不含此前单独输出的第一条），`block`/`time` 为窗口内最后一条，`lost_before=1` 表示窗口内任一条之前 FIFO 丢过事件；
+- 一个 250 ms 窗口内没有新事件即视为该串结束，下一条事件再次立即输出。
+
+因此过载时每种类型最多约 4 行/秒。其他类型（`tx_burst_ack`、`tx_late`、`tx_seq_error`、`tx_header_error`、`rx_late_command`、`rx_command_ignored`）不限速；输出它们之前先把待汇总的计数输出，保证行按时间顺序。没有 `count` 字段的行表示 1 个事件，旧主机（OCH 0.6.0）忽略新增字段，只会把每行当作一个事件计数。
+
 ## 2. 命令一览
 
 ### 射频（AD9361 原有命令）
