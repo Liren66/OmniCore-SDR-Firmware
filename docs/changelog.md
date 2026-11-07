@@ -14,7 +14,7 @@
 
 ## 未发布
 
-- **修复**：TX/RX 过载（例如 2T2R 12 位 50 MS/s）时 `tx_underflow`/`rx_overflow_gap` 事件刷满控制串口，命令回复（包括停止命令）排队、事件 FIFO 溢出丢失 RX GAP 事件。SDK 现在合并这两类事件：第一条立即输出，之后每 250 ms 最多一条带 `count=` 的汇总行（见 [SDK 命令](sdk-commands.md#异步事件)）。行格式向后兼容 OCH 0.6.0。仅 SDK 改动，位流不变。
+- **修复**：TX/RX 过载（例如 2T2R 12 位 50 MS/s）时 `tx_underflow`/`rx_overflow_gap` 事件刷满控制串口，命令回复（包括停止命令）排队、事件 FIFO 溢出丢失 RX GAP 事件。SDK 现在合并这两类事件：第一条立即输出，之后每 250 ms 最多一条带 `count=` 的汇总行（见 [SDK 命令](sdk-commands.md#异步事件)）。停止某个方向时立即补报剩余汇总。行格式向后兼容 OCH 0.6.0；OCH 0.6.1 读取 `count`。仅 SDK 改动，位流不变。
 
 ## v2026.11.07：成帧 USB 传输与硬件时间戳
 

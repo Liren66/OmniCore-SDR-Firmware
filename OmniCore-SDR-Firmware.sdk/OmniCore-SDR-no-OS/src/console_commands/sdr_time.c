@@ -379,17 +379,13 @@ static coalesce_state *coalesce_of(u32 code)
     return 0;
 }
 
-void sdr_time_service(void)
+/* Coalesced events cost a register read, so drain the whole FIFO; only
+ * printed lines are bounded per call. */
+static void drain_events(uint64_t now)
 {
     CH32H417_IP_Event e;
     coalesce_state *c;
     unsigned k, printed = 0, i;
-    uint64_t now;
-    if (!tb || !sdr_state.bridge_ready || !sdr_time_capable())
-        return;
-    now = CH32H417_IrqNowUs();
-    /* Coalesced events cost a register read, so drain the whole FIFO; only
-     * printed lines are bounded per call. */
     for (k = 0; k < EVENT_POP_MAX && printed < EVENT_PRINT_MAX &&
                 CH32H417_IP_PopEvent(tb, &e) == 1; ++k) {
         ++events_total;
@@ -418,6 +414,30 @@ void sdr_time_service(void)
             c->deadline = now + COALESCE_US;
         }
     }
+}
+
+void sdr_time_flush_events(void)
+{
+    unsigned i;
+    uint64_t now;
+    if (!tb || !sdr_state.bridge_ready || !sdr_time_capable())
+        return;
+    now = CH32H417_IrqNowUs();
+    drain_events(now);
+    for (i = 0; i < COALESCE_KINDS; ++i) {
+        flush_coalesced(&coalesce[i], now);
+        coalesce[i].active = 0;   /* the next stream's first event prints at once */
+    }
+}
+
+void sdr_time_service(void)
+{
+    unsigned i;
+    uint64_t now;
+    if (!tb || !sdr_state.bridge_ready || !sdr_time_capable())
+        return;
+    now = CH32H417_IrqNowUs();
+    drain_events(now);
     for (i = 0; i < COALESCE_KINDS; ++i)
         if (coalesce[i].active && now >= coalesce[i].deadline)
             flush_coalesced(&coalesce[i], now);

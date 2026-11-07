@@ -273,6 +273,9 @@ int sdr_cmd_tx_enable(const double *values, unsigned count)
     if (count && sdr_set_tx_enabled((unsigned)values[0])) {
         return -1;
     }
+    if (count && !values[0]) {
+        sdr_time_flush_events();
+    }
     console_print("tx_enable=%u actual_mask=%u\n", sdr_state.tx_enabled, sdr_actual_tx_mask());
     return 0;
 }
@@ -281,6 +284,9 @@ int sdr_cmd_usb_data(const double *values, unsigned count)
 {
     if (count && sdr_set_usb_data((unsigned)values[0], (unsigned)values[1])) {
         return -1;
+    }
+    if (count && (!values[0] || !values[1])) {
+        sdr_time_flush_events();
     }
     console_print("usb_data_en=%u %u rx_stream=%lu tx_stream=%lu\n", sdr_state.usb_rx,
                   sdr_state.usb_tx, (unsigned long)sdr_state.rx_stream,
@@ -539,6 +545,7 @@ int sdr_cmd_usb_stop(const double *values, unsigned count)
     } else if (sdr_set_usb_data(0, 0)) {
         return -1;
     }
+    sdr_time_flush_events();
     sdr_print_usb_config();
     return 0;
 }

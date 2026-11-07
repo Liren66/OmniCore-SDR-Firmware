@@ -15,6 +15,11 @@ unsigned sdr_time_mode_bits(void);
 int sdr_time_execute(const char *line);
 /* Drains FPGA timing events into EVT lines; checks for rate changes. */
 void sdr_time_service(void);
+/* Prints pending coalesced underflow/gap summaries now and ends the bursts.
+ * Commands that stop a direction (tx_enable=0, usb_data_en= with a 0,
+ * usb_stop!) call it so a run's tail is reported before their reply, not up
+ * to 250 ms later, possibly to the next host session. */
+void sdr_time_flush_events(void);
 void sdr_time_help(void);
 
 #endif

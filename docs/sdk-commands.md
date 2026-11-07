@@ -58,9 +58,10 @@ Zynq no-OS 程序在 PL UART16550 上提供文本命令行。主机经 CH32 的 
 - 之后每 250 ms 最多输出一条汇总行，在原格式后追加字段：
   `EVT tseq=<n> type=tx_underflow src=fpga_time code=2 block=<最后块> time=<最后时间> lost_before=<0|1> count=<N> first_block=<首块> first_time=<首时间>`
   `count` 为本行代表的事件数（不含此前单独输出的第一条），`block`/`time` 为窗口内最后一条，`lost_before=1` 表示窗口内任一条之前 FIFO 丢过事件；
-- 一个 250 ms 窗口内没有新事件即视为该串结束，下一条事件再次立即输出。
+- 一个 250 ms 窗口内没有新事件即视为该串结束，下一条事件再次立即输出；
+- 停止某个方向的命令（`tx_enable=0`、带 0 的 `usb_data_en=`、`usb_stop!`）会先读空事件 FIFO、输出剩余汇总并结束当前串，再给出回复，因此一次运行的尾部不会留到下一次连接。
 
-因此过载时每种类型最多约 4 行/秒。其他类型（`tx_burst_ack`、`tx_late`、`tx_seq_error`、`tx_header_error`、`rx_late_command`、`rx_command_ignored`）不限速；输出它们之前先把待汇总的计数输出，保证行按时间顺序。没有 `count` 字段的行表示 1 个事件，旧主机（OCH 0.6.0）忽略新增字段，只会把每行当作一个事件计数。
+因此过载时每种类型最多约 4 行/秒。其他类型（`tx_burst_ack`、`tx_late`、`tx_seq_error`、`tx_header_error`、`rx_late_command`、`rx_command_ignored`）不限速；输出它们之前先把待汇总的计数输出，保证行按时间顺序。没有 `count` 字段的行表示 1 个事件，旧主机（OCH 0.6.0）忽略新增字段，只会把每行当作一个事件计数；OCH 0.6.1 把 `count` 放进 `och_event.count` 并按它累加 `device_underflows`。
 
 ## 2. 命令一览
 
