@@ -3,7 +3,7 @@
 Zynq no-OS 程序在 PL UART16550 上提供文本命令行。主机经 CH32 的 USB EP2 访问它（3.125 MBd，与 CH32 `UART1_BRIDGE_BAUD` 一致）。
 一般不需要手工发命令：OmniCore Host（OCH）的 `och get/set/action` 和 C API 会按正确顺序调用。本文用于调试、移植和理解 OCH 的行为。
 
-本文描述当前版本（v2026.11.07，`SDK_CMD_1.1_20261107_FRAMED`）。历次协议扩展的完整记录见
+本文描述当前版本（v2026.11.07.1，`SDK_CMD_1.1_20261107_EVTCOUNT`）。历次协议扩展的完整记录见
 [`COMMAND_PROTOCOL_V1.txt`](../OmniCore-SDR-Firmware.sdk/COMMAND_PROTOCOL_V1.txt)，其中第 3、5、6、7 节的
 16 KiB 起始头、RX 重同步和 TX 预填门槛已在 1.1 中删除。
 
@@ -137,7 +137,7 @@ ticks 是十进制 64 位无符号整数，1 tick = 1 个样点。详见 [hw-tim
 ## 3. `system_info?` 中与版本相关的字段
 
 ```text
-firmware=SDK_CMD_1.1_20261107_FRAMED ... fpga=CH32H417_IP_0x01030001
+firmware=SDK_CMD_1.1_20261107_EVTCOUNT ... fpga=CH32H417_IP_0x01030001
 time_capabilities hw_time=1 framing=1 ...
 ... transport=framed16k header_bytes=16 payload_bytes=16368 ...
 overflow_policy=framed_gap_event

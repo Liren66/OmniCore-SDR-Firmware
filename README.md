@@ -19,7 +19,7 @@ OmniCore SDR 的板端固件与下载工具仓库。OmniCore SDR 是一块基于
 |---|---|
 | 射频 | AD9361 2R2T（芯片 LO 范围 70 MHz – 6 GHz），采样率最高 61.44 MS/s；支持外部 RX/TX LO（J11/J10）、自定义 FIR、RX DC/IQ 跟踪校正 |
 | 数据传输 | USB 3.0，每个 16 KiB 块带 16 字节头（序号、有效样点数、64 位时间戳），块内整数个样点；12 bit 或 IQ8 格式 |
-| 吞吐 | 1RX、2RX、1T1R、2T2R IQ8 均为 61.44 MS/s；2T1R、1T2R 56 MS/s；2T2R 12 bit 42 MS/s（UHSIF 总线上限） |
+| 吞吐 | 1RX、2RX、1T1R、2T2R IQ8 均为 61.44 MS/s；1T2R 58.5 MS/s，2T1R 58 MS/s；2T2R 12 bit 44 MS/s（UHSIF 总线上限约 532 MB/s，RX 与 TX 共享） |
 | 时间与同步 | 64 位样点计数器；外部 PPS（J6）或内部 PPS 对时；定时 RX、定时 TX 突发；溢出丢样数精确可知；带时间的 TX 完成/迟到/欠流事件 |
 | 参考时钟 | 板载 40 MHz VCTCXO；可由 ADF4002 锁到 J3 的外部 10 MHz，或由 CH32 按 PPS 闭环调节 |
 | 固件升级 | CH32 桥接固件带 Bootloader，`och firmware update` 通过 USB 升级；Zynq 用 `BOOT.bin` 从 SD 卡或 QSPI 启动 |
@@ -27,12 +27,13 @@ OmniCore SDR 的板端固件与下载工具仓库。OmniCore SDR 是一块基于
 
 ## 当前版本
 
-**[v2026.11.07](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07)**：Zynq 固件改为**成帧 USB 传输与硬件时间戳**
-（FPGA `CH32H417_IP` 1.3、SDK `SDK_CMD_1.1_20261107_FRAMED`），原 16 KiB 递增起始头模式已删除。CH32 桥接固件仍为 **1.0.0**。
+**[v2026.11.07.1](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.1)**：修复过载时 TX 欠流 / RX GAP 事件刷满控制串口
+（SDK `SDK_CMD_1.1_20261107_EVTCOUNT`，位流与 v2026.11.07 相同）。v2026.11.07 起 Zynq 固件为**成帧 USB 传输与硬件时间戳**
+（FPGA `CH32H417_IP` 1.3），原 16 KiB 递增起始头模式已删除。CH32 桥接固件仍为 **1.0.0**。
 
 | 组件 | 版本 | 需要的 OmniCore Host |
 |---|---|---|
-| Zynq `BOOT.bin` | v2026.11.07（IP 1.3） | **0.6.0 及以上** |
+| Zynq `BOOT.bin` | v2026.11.07.1（IP 1.3） | **0.6.0 及以上**；事件计数 `count` 需 0.6.1 |
 | CH32 桥接 | 1.0.0 | USB 升级需 0.5.0 及以上 |
 
 需要旧行为（OCH 0.5.x）请使用 v2026.11.03。历次版本与配套关系见 [更新记录](docs/changelog.md)。

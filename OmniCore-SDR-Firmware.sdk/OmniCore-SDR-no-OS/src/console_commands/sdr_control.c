@@ -443,7 +443,7 @@ void sdr_print_usb_status(void)
 void sdr_print_system_info(void)
 {
     console_print(
-        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.1_20261107_FRAMED protocol=1.0 fpga=CH32H417_IP_0x%08lx channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n",
+        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.1_20261107_EVTCOUNT protocol=1.0 fpga=CH32H417_IP_0x%08lx channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n",
         (unsigned long)CH32H417_IP_Version(&bridge));
     console_print(
         "capabilities channel=1 tx_gate=1 usb=1 clock_chain=1 supported_fir_ids=0 fir_upload=1 clock_config=1 rx_correction=1 adf4002=1 ref_source=1 external_lo=1 rf_reinit=1 digital_self_test=1 events=1 overflow_policy=framed_gap_event clock_ref_source=adf4002_10MHz_discipline lock_readback=0 pps_monitor=%u pps_adjustment=1 vcxo=1\n",
