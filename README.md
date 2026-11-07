@@ -21,20 +21,20 @@ OmniCore SDR 的板端固件与下载工具仓库。OmniCore SDR 是一块基于
 | 数据传输 | USB 3.0，每个 16 KiB 块带 16 字节头（序号、有效样点数、64 位时间戳），块内整数个样点；12 bit 或 IQ8 格式 |
 | 吞吐 | 1RX、2RX、1T1R、2T2R IQ8 均为 61.44 MS/s；1T2R 58.5 MS/s，2T1R 58 MS/s；2T2R 12 bit 44 MS/s（UHSIF 总线上限约 532 MB/s，RX 与 TX 共享） |
 | 时间与同步 | 64 位样点计数器；外部 PPS（J6）或内部 PPS 对时；定时 RX、定时 TX 突发；溢出丢样数精确可知；带时间的 TX 完成/迟到/欠流事件 |
-| 多板同步 | 无外部参考时菊花链：REF_OUT（J13）输出本板 40 MHz 四分频的 10 MHz 给下一块板的 J3，主板 TRIG（J9）一分多接到每块板的 AD9361_SYNC（J1）；也支持所有板共用 10 MHz + PPS。锁定检查、AD9361 多片同步、公共时间装载，见 [多板同步](docs/multi-board-sync.md)（开发中，SDK_CMD_1.2） |
+| 多板同步 | 无外部参考时菊花链：REF_OUT（J13）输出本板 40 MHz 四分频的 10 MHz 给下一块板的 J3，主板 TRIG（J9）一分多接到每块板的 AD9361_SYNC（J1）；也支持所有板共用 10 MHz + PPS。锁定检查、AD9361 多片同步、公共时间装载，见 [多板同步](docs/multi-board-sync.md) |
 | 参考时钟 | 板载 40 MHz VCTCXO；可由 ADF4002 锁到 J3 的外部 10 MHz，或由 CH32 按 PPS 闭环调节 |
 | 固件升级 | CH32 桥接固件带 Bootloader，`och firmware update` 通过 USB 升级；Zynq 用 `BOOT.bin` 从 SD 卡或 QSPI 启动 |
 | 板级 | RGB 状态灯、风扇温控、Zynq 温度、RSSI、数字接口自检 |
 
 ## 当前版本
 
-**[v2026.11.07.1](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.1)**：修复过载时 TX 欠流 / RX GAP 事件刷满控制串口
-（SDK `SDK_CMD_1.1_20261107_EVTCOUNT`，位流与 v2026.11.07 相同）。v2026.11.07 起 Zynq 固件为**成帧 USB 传输与硬件时间戳**
+**[v2026.11.07.2](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.2)**：新增**多板同步**（FPGA `OC_SYNC_AXI` 1.0，SDK `SDK_CMD_1.2_20261107_SYNC`）：
+无外部参考时菊花链共享 10 MHz 并由主板 TRIG 同步，也支持公共 10 MHz + PPS，见 [多板同步](docs/multi-board-sync.md)。v2026.11.07 起 Zynq 固件为**成帧 USB 传输与硬件时间戳**
 （FPGA `CH32H417_IP` 1.3），原 16 KiB 递增起始头模式已删除。CH32 桥接固件仍为 **1.0.0**。
 
 | 组件 | 版本 | 需要的 OmniCore Host |
 |---|---|---|
-| Zynq `BOOT.bin` | v2026.11.07.1（IP 1.3） | **0.6.0 及以上**；事件计数 `count` 需 0.6.1 |
+| Zynq `BOOT.bin` | v2026.11.07.2（IP 1.3 + OC_SYNC_AXI 1.0） | **0.6.0 及以上**；事件计数 `count` 需 0.6.1，多板同步需 0.7.0 |
 | CH32 桥接 | 1.0.0 | USB 升级需 0.5.0 及以上 |
 
 需要旧行为（OCH 0.5.x）请使用 v2026.11.03。历次版本与配套关系见 [更新记录](docs/changelog.md)。
