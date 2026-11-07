@@ -28,7 +28,8 @@ OmniCore SDR 的板端固件与下载工具仓库。OmniCore SDR 是一块基于
 
 ## 当前版本
 
-**[v2026.11.07.2](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.2)**：新增**多板同步**（FPGA `OC_SYNC_AXI` 1.0，SDK `SDK_CMD_1.2_20261107_SYNC`）：
+**[v2026.11.08](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.08)**：CH32 桥接固件 1.0.1，`och info` 每次都能读到 USB-C 电流（需 OmniCore Host 0.7.1）；Zynq `BOOT.bin` 同 v2026.11.07.2。
+v2026.11.07.2 新增**多板同步**（FPGA `OC_SYNC_AXI` 1.0，SDK `SDK_CMD_1.2_20261107_SYNC`）：
 无外部参考时菊花链共享 10 MHz 并由主板 TRIG 同步，也支持公共 10 MHz + PPS，见 [多板同步](docs/multi-board-sync.md)。v2026.11.07 起 Zynq 固件为**成帧 USB 传输与硬件时间戳**
 （FPGA `CH32H417_IP` 1.3），原 16 KiB 递增起始头模式已删除。CH32 桥接固件为 **1.0.1**（EP3 诊断查询，`och info` 每次都能读到 USB-C 电流）。
 
