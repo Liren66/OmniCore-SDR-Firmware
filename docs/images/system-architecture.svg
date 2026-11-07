@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1340 700" width="1340" height="700" font-family="'Segoe UI','Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC',Arial,sans-serif">
+  <defs>
+    <marker id="aBlue" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+    <marker id="aOrange" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ea580c"/></marker>
+    <marker id="aGray" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+    <style>
+      .t  { font-size: 17px; font-weight: 700; fill: #0f172a; }
+      .s  { font-size: 13px; fill: #334155; }
+      .xs { font-size: 12px; fill: #475569; }
+      .lb { font-size: 12.5px; font-weight: 600; }
+      .data { stroke: #2563eb; stroke-width: 4; fill: none; }
+      .ctl  { stroke: #16a34a; stroke-width: 2.2; fill: none; }
+      .clk  { stroke: #ea580c; stroke-width: 2.2; fill: none; }
+      .bus  { stroke: #64748b; stroke-width: 2; fill: none; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1340" height="700" fill="#ffffff"/>
+
+  <!-- ===== AD9361 ===== -->
+  <rect x="30" y="150" width="190" height="150" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+  <text x="125" y="190" class="t" text-anchor="middle">AD9361</text>
+  <text x="125" y="214" class="s" text-anchor="middle">2R2T 射频收发器</text>
+  <text x="125" y="236" class="xs" text-anchor="middle">LO 70 MHz – 6 GHz</text>
+  <text x="125" y="256" class="xs" text-anchor="middle">≤ 61.44 MS/s</text>
+  <text x="125" y="288" class="xs" text-anchor="middle">CLK_OUT ▲</text>
+
+  <!-- ===== Reference clock ===== -->
+  <rect x="30" y="400" width="190" height="120" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="125" y="436" class="t" text-anchor="middle">40 MHz VCTCXO</text>
+  <text x="125" y="460" class="s" text-anchor="middle">ADF4002 锁相</text>
+  <text x="125" y="480" class="xs" text-anchor="middle">锁到 J3 10 MHz</text>
+  <text x="125" y="500" class="xs" text-anchor="middle">或由 PPS 闭环调节</text>
+
+  <!-- VCTCXO -> AD9361 -->
+  <path d="M125,400 L125,302" class="clk" marker-end="url(#aOrange)"/>
+  <text x="134" y="356" class="lb" fill="#ea580c">40 MHz 参考</text>
+
+  <!-- J3 input -->
+  <path d="M70,640 L70,522" class="clk" marker-end="url(#aOrange)"/>
+  <text x="70" y="660" class="lb" fill="#ea580c" text-anchor="middle">J3 外部 10 MHz</text>
+
+  <!-- ===== Zynq container ===== -->
+  <rect x="290" y="40" width="560" height="590" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+  <text x="570" y="620" class="t" text-anchor="middle" fill="#475569">Zynq-7020（xc7z020clg400-2）</text>
+
+  <!-- PL -->
+  <rect x="310" y="82" width="520" height="330" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+  <text x="324" y="104" class="lb" fill="#1d4ed8">PL（FPGA）</text>
+
+  <!-- axi_ad9361 -->
+  <rect x="325" y="150" width="140" height="150" rx="8" fill="#ffffff" stroke="#6366f1" stroke-width="1.8"/>
+  <text x="395" y="188" class="t" text-anchor="middle">axi_ad9361</text>
+  <text x="395" y="212" class="xs" text-anchor="middle">ADI hdl_2018_r2</text>
+  <text x="395" y="234" class="xs" text-anchor="middle">LVDS 接口核</text>
+  <text x="395" y="256" class="xs" text-anchor="middle">l_clk = 4 × Fs</text>
+
+  <!-- CH32H417_IP container -->
+  <rect x="520" y="112" width="290" height="200" rx="8" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+  <text x="534" y="133" class="lb" fill="#1d4ed8">CH32H417_IP 1.3</text>
+  <rect x="538" y="143" width="254" height="44" rx="6" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="665" y="162" class="s" text-anchor="middle" font-weight="600">oc_timekeeper</text>
+  <text x="665" y="179" class="xs" text-anchor="middle">64 位样点时间 · PPS 装载</text>
+  <rect x="538" y="195" width="254" height="44" rx="6" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="665" y="214" class="s" text-anchor="middle" font-weight="600">CH32H417_Fsm</text>
+  <text x="665" y="231" class="xs" text-anchor="middle">16 KiB 成帧 · 定时 RX / TX</text>
+  <rect x="538" y="247" width="254" height="52" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="665" y="268" class="s" text-anchor="middle" font-weight="600">IQ FIFO · 事件 FIFO</text>
+  <text x="665" y="287" class="xs" text-anchor="middle">AXI-Lite 寄存器 0x43C10000</text>
+
+  <!-- axi_uart16550 -->
+  <rect x="660" y="335" width="150" height="56" rx="8" fill="#ffffff" stroke="#16a34a" stroke-width="1.8"/>
+  <text x="735" y="359" class="s" text-anchor="middle" font-weight="600">axi_uart16550</text>
+  <text x="735" y="378" class="xs" text-anchor="middle">控制台串口</text>
+
+  <!-- PS -->
+  <rect x="310" y="440" width="520" height="160" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+  <text x="324" y="462" class="lb" fill="#15803d">PS（Cortex-A9 · no-OS）</text>
+  <rect x="330" y="482" width="150" height="96" rx="8" fill="#ffffff" stroke="#86efac"/>
+  <text x="405" y="520" class="s" text-anchor="middle" font-weight="600">AD9361 驱动</text>
+  <text x="405" y="542" class="xs" text-anchor="middle">初始化 · 增益 · LO</text>
+  <rect x="495" y="482" width="150" height="96" rx="8" fill="#ffffff" stroke="#86efac"/>
+  <text x="570" y="520" class="s" text-anchor="middle" font-weight="600">时间 / 定时命令</text>
+  <text x="570" y="542" class="xs" text-anchor="middle">EVT 事件上报</text>
+  <rect x="660" y="482" width="150" height="96" rx="8" fill="#ffffff" stroke="#86efac"/>
+  <text x="735" y="520" class="s" text-anchor="middle" font-weight="600">SDK 命令解析</text>
+  <text x="735" y="542" class="xs" text-anchor="middle">RSP / EVT 文本协议</text>
+
+  <!-- ===== Links inside / around Zynq ===== -->
+  <!-- AD9361 <-> axi_ad9361 -->
+  <path d="M222,218 L322,218" class="data" marker-start="url(#aBlue)" marker-end="url(#aBlue)"/>
+  <text x="275" y="208" class="lb" fill="#2563eb" text-anchor="middle">LVDS</text>
+  <text x="275" y="238" class="xs" text-anchor="middle">12 bit</text>
+
+  <!-- axi_ad9361 <-> Fsm -->
+  <path d="M469,217 L534,217" class="data" marker-start="url(#aBlue)" marker-end="url(#aBlue)"/>
+  <!-- adc_valid strobe -> timekeeper -->
+  <path d="M465,165 L534,165" class="clk" marker-end="url(#aOrange)"/>
+  <text x="499" y="157" class="xs" text-anchor="middle">选通</text>
+
+  <!-- CLK_OUT -> U10 -> timekeeper -->
+  <path d="M190,150 L190,64 L690,64 L690,139" class="clk" marker-end="url(#aOrange)"/>
+  <text x="200" y="56" class="lb" fill="#ea580c">CLK_OUT 40 MHz</text>
+  <text x="296" y="80" class="xs">U10</text>
+
+  <!-- J6 PPS -> Y7 -> timekeeper -->
+  <path d="M770,12 L770,139" class="clk" marker-end="url(#aOrange)"/>
+  <text x="780" y="24" class="lb" fill="#ea580c">J6 PPS_EXT</text>
+  <text x="780" y="58" class="xs">Y7</text>
+
+  <!-- SPI: PS -> AD9361 -->
+  <path d="M330,530 L250,530 L250,270 L224,270" class="bus" marker-end="url(#aGray)"/>
+  <text x="258" y="400" class="lb" fill="#64748b">SPI</text>
+
+  <!-- PS <-> CH32H417_IP (AXI-Lite) -->
+  <path d="M570,482 L570,316" class="bus" marker-start="url(#aGray)" marker-end="url(#aGray)"/>
+  <text x="578" y="345" class="xs">AXI-Lite</text>
+
+  <!-- PS <-> uart -->
+  <path d="M735,482 L735,395" class="ctl" marker-start="url(#aGreen)" marker-end="url(#aGreen)"/>
+  <text x="743" y="430" class="xs">AXI</text>
+
+  <g transform="translate(20,0)">
+<!-- ===== CH32H417 ===== -->
+  <rect x="890" y="150" width="190" height="300" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+  <text x="985" y="186" class="t" text-anchor="middle">CH32H417</text>
+  <text x="985" y="208" class="s" text-anchor="middle">USB 3.0 桥接（1.0.0）</text>
+  <rect x="905" y="222" width="160" height="40" rx="6" fill="#ffffff" stroke="#fdba74"/>
+  <text x="985" y="247" class="xs" text-anchor="middle">V3F · stage-0 启动选择</text>
+  <rect x="905" y="270" width="160" height="40" rx="6" fill="#ffffff" stroke="#fdba74"/>
+  <text x="985" y="295" class="xs" text-anchor="middle">V5F · USB 协议栈 / Bootloader</text>
+  <text x="905" y="338" class="xs">EP1 IN/OUT  IQ 数据</text>
+  <text x="905" y="360" class="xs">EP2 IN/OUT  控制命令</text>
+  <text x="905" y="382" class="xs">EP3 IN      诊断日志</text>
+  <text x="905" y="404" class="xs">EP0         升级 / 诊断请求</text>
+  <text x="985" y="436" class="xs" text-anchor="middle">PA4 DAC ▼</text>
+
+  </g>
+
+  <!-- UHSIF -->
+  <path d="M812,217 L908,217" class="data" marker-start="url(#aBlue)" marker-end="url(#aBlue)"/>
+  <text x="880" y="204" class="lb" fill="#2563eb" text-anchor="middle">UHSIF</text>
+  <text x="880" y="240" class="xs" text-anchor="middle">32 bit</text>
+  <text x="880" y="256" class="xs" text-anchor="middle">133 MHz</text>
+
+  <!-- UART -->
+  <path d="M812,363 L908,363" class="ctl" marker-start="url(#aGreen)" marker-end="url(#aGreen)"/>
+  <text x="880" y="352" class="lb" fill="#16a34a" text-anchor="middle">UART</text>
+  <text x="878" y="382" class="xs" style="font-size:11px" text-anchor="middle">3.125 MBd</text>
+
+  <!-- PA4 tune -> VCTCXO -->
+  <path d="M1005,450 L1005,676 L180,676 L180,524" class="clk" stroke-dasharray="7 5" marker-end="url(#aOrange)"/>
+  <text x="590" y="668" class="lb" fill="#ea580c" text-anchor="middle">PA4 调谐电压（仅 PPS 驯服模式）</text>
+
+  <g transform="translate(20,0)">
+<!-- ===== Host ===== -->
+  <rect x="1140" y="150" width="160" height="150" rx="10" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="1220" y="188" class="t" text-anchor="middle">主机</text>
+  <text x="1220" y="212" class="s" text-anchor="middle">OmniCore Host</text>
+  <text x="1220" y="234" class="xs" text-anchor="middle">och 命令行 · C API</text>
+  <text x="1220" y="256" class="xs" text-anchor="middle">SDR++ 插件</text>
+
+  </g>
+  <path d="M1102,225 L1158,225" class="data" stroke-width="6" marker-start="url(#aBlue)" marker-end="url(#aBlue)"/>
+  <text x="1130" y="208" class="lb" fill="#2563eb" text-anchor="middle">USB 3.0</text>
+  <text x="1130" y="252" class="xs" text-anchor="middle">1a86:5537</text>
+
+  <g transform="translate(20,0)">
+<!-- ===== Legend ===== -->
+  <rect x="1140" y="380" width="160" height="128" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+  <text x="1154" y="402" class="lb" fill="#0f172a">图例</text>
+  <line x1="1154" y1="422" x2="1194" y2="422" stroke="#2563eb" stroke-width="4"/>
+  <text x="1202" y="426" class="xs">IQ 数据</text>
+  <line x1="1154" y1="446" x2="1194" y2="446" stroke="#16a34a" stroke-width="2.2"/>
+  <text x="1202" y="450" class="xs">控制命令</text>
+  <line x1="1154" y1="470" x2="1194" y2="470" stroke="#ea580c" stroke-width="2.2"/>
+  <text x="1202" y="474" class="xs">时钟 / PPS</text>
+  <line x1="1154" y1="494" x2="1194" y2="494" stroke="#64748b" stroke-width="2"/>
+  <text x="1202" y="498" class="xs">配置总线</text>
+</g>
+</svg>

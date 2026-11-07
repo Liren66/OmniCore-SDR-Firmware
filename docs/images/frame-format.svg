@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" width="1200" height="500" font-family="'Segoe UI','Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Noto Sans SC',Arial,sans-serif">
+  <defs>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="8" height="8" fill="#f1f5f9"/><line x1="0" y1="0" x2="0" y2="8" stroke="#cbd5e1" stroke-width="3"/>
+    </pattern>
+    <style>
+      .t  { font-size: 16px; font-weight: 700; fill: #0f172a; }
+      .s  { font-size: 13px; fill: #1e293b; }
+      .xs { font-size: 12px; fill: #475569; }
+      .m  { font-family: Consolas,'Courier New',monospace; font-size: 12.5px; fill: #1e293b; }
+      .c  { text-anchor: middle; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1200" height="500" fill="#ffffff"/>
+
+  <!-- ===== Block ===== -->
+  <text x="40" y="40" class="t">一个 USB / UHSIF 块 = 16384 字节</text>
+  <text x="1160" y="40" class="xs" text-anchor="end">块内为整数个样点，块与块之间无相位拼接</text>
+
+  <rect x="40" y="56" width="120" height="50" fill="#fed7aa" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="100" y="86" class="s c" font-weight="600">块头 16 B</text>
+
+  <rect x="160" y="56" width="1000" height="50" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <g class="s">
+    <rect x="160" y="56" width="100" height="50" fill="#bfdbfe" stroke="#2563eb"/><text x="210" y="86" class="s c">帧 0</text>
+    <rect x="260" y="56" width="100" height="50" fill="#dbeafe" stroke="#2563eb"/><text x="310" y="86" class="s c">帧 1</text>
+    <rect x="360" y="56" width="100" height="50" fill="#bfdbfe" stroke="#2563eb"/><text x="410" y="86" class="s c">帧 2</text>
+    <text x="580" y="86" class="s c">载荷 16368 B · valid 个有效帧</text>
+    <rect x="700" y="56" width="140" height="50" fill="#bfdbfe" stroke="#2563eb"/><text x="770" y="86" class="s c">帧 valid−1</text>
+    <rect x="840" y="56" width="320" height="50" fill="url(#hatch)" stroke="#2563eb"/><text x="1000" y="86" class="s c">补零（短块：突发结尾或溢出）</text>
+  </g>
+  <text x="40" y="124" class="xs c">0</text>
+  <text x="160" y="124" class="xs c">16</text>
+  <text x="1160" y="124" class="xs c">16384</text>
+
+  <!-- zoom lines -->
+  <path d="M40,108 L40,150 M160,108 L1160,150" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="5 4" fill="none"/>
+
+  <!-- ===== Header bytes ===== -->
+  <text x="48" y="166" class="xs">块头字节（小端）</text>
+  <g>
+    <rect x="40"  y="190" width="70"  height="54" fill="#fef9c3" stroke="#a16207"/>
+    <text x="75" y="213" class="s c" font-weight="600">check</text><text x="75" y="232" class="xs c">校验</text>
+    <rect x="110" y="190" width="70"  height="54" fill="#fed7aa" stroke="#ea580c"/>
+    <text x="145" y="213" class="s c" font-weight="600">flags</text><text x="145" y="232" class="xs c">标志</text>
+    <rect x="180" y="190" width="70"  height="54" fill="#e2e8f0" stroke="#64748b"/>
+    <text x="215" y="213" class="m c">0x43</text><text x="215" y="232" class="xs c">'C'</text>
+    <rect x="250" y="190" width="70"  height="54" fill="#e2e8f0" stroke="#64748b"/>
+    <text x="285" y="213" class="m c">0x4F</text><text x="285" y="232" class="xs c">'O'</text>
+    <rect x="320" y="190" width="140" height="54" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="390" y="213" class="s c" font-weight="600">valid</text><text x="390" y="232" class="xs c">有效帧数 u16</text>
+    <rect x="460" y="190" width="140" height="54" fill="#ccfbf1" stroke="#0d9488"/>
+    <text x="530" y="213" class="s c" font-weight="600">seq</text><text x="530" y="232" class="xs c">块序号 u16</text>
+    <rect x="600" y="190" width="560" height="54" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="880" y="213" class="s c" font-weight="600">time（u64）</text>
+    <text x="880" y="232" class="xs c">本块第一个样点的时间，1 tick = 1 个样点</text>
+  </g>
+  <g class="xs">
+    <text x="75" y="184" class="xs c">0</text><text x="145" y="184" class="xs c">1</text><text x="215" y="184" class="xs c">2</text><text x="285" y="184" class="xs c">3</text>
+    <text x="355" y="184" class="xs c">4</text><text x="425" y="184" class="xs c">5</text><text x="495" y="184" class="xs c">6</text><text x="565" y="184" class="xs c">7</text>
+    <text x="635" y="184" class="xs c">8</text><text x="705" y="184" class="xs c">9</text><text x="775" y="184" class="xs c">10</text><text x="845" y="184" class="xs c">11</text>
+    <text x="915" y="184" class="xs c">12</text><text x="985" y="184" class="xs c">13</text><text x="1055" y="184" class="xs c">14</text><text x="1125" y="184" class="xs c">15</text>
+  </g>
+  <!-- word brackets -->
+  <g stroke="#475569" stroke-width="1.3" fill="none">
+    <path d="M42,254 v6 h276 v-6"/><path d="M322,254 v6 h276 v-6"/>
+    <path d="M602,254 v6 h276 v-6"/><path d="M882,254 v6 h276 v-6"/>
+  </g>
+  <text x="180" y="278" class="m c">h0 = 0x4F43&lt;&lt;16 | flags&lt;&lt;8 | check</text>
+  <text x="460" y="278" class="m c">h1 = seq&lt;&lt;16 | valid</text>
+  <text x="740" y="278" class="m c">h2 = time[31:0]</text>
+  <text x="1020" y="278" class="m c">h3 = time[63:32]</text>
+
+  <!-- ===== Panels ===== -->
+  <rect x="40" y="306" width="360" height="150" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="56" y="330" class="t" style="font-size:14px">flags · RX</text>
+  <text x="56" y="354" class="s">bit0 TIME_VALID  时间有效</text>
+  <text x="56" y="374" class="s">bit1 SOB  起始块　 bit3 EOB  结束块</text>
+  <text x="56" y="394" class="s">bit2 GAP  此块之前丢过样</text>
+  <text x="56" y="414" class="s">bit4 LATE  定时命令迟到</text>
+  <text x="56" y="434" class="s">bit5 PAD  块尾含补零</text>
+
+  <rect x="420" y="306" width="340" height="150" rx="8" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="436" y="330" class="t" style="font-size:14px">flags · TX</text>
+  <text x="436" y="354" class="s">bit0 HAS_TIME  在 time 时刻开始发射</text>
+  <text x="436" y="374" class="s">bit1 SOB  突发开始</text>
+  <text x="436" y="394" class="s">bit3 EOB  突发结束</text>
+  <text x="436" y="420" class="xs">迟到的突发整段丢弃并上报 tx_late；</text>
+  <text x="436" y="438" class="xs">valid = 0 的块被丢弃</text>
+
+  <rect x="780" y="306" width="380" height="150" rx="8" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="796" y="330" class="t" style="font-size:14px">每块帧数（16368 B 载荷）</text>
+  <text x="796" y="356" class="xs">格式</text><text x="990" y="356" class="xs c">每帧</text><text x="1100" y="356" class="xs c">每块帧数</text>
+  <line x1="796" y1="364" x2="1144" y2="364" stroke="#bfdbfe"/>
+  <text x="796" y="386" class="s">12 bit 单通道</text><text x="990" y="386" class="s c">3 B</text><text x="1100" y="386" class="s c" font-weight="600">5456</text>
+  <text x="796" y="410" class="s">12 bit 双通道</text><text x="990" y="410" class="s c">6 B</text><text x="1100" y="410" class="s c" font-weight="600">2728</text>
+  <text x="796" y="434" class="s">IQ8 双通道</text><text x="990" y="434" class="s c">4 B</text><text x="1100" y="434" class="s c" font-weight="600">4092</text>
+
+  <text x="40" y="484" class="s">校验：<tspan class="m">check = 字节 1..15 的 XOR</tspan>　　魔数：<tspan class="m">h0[31:16] = 0x4F43</tspan>　　头开销 16 / 16384 ≈ 0.1%</text>
+</svg>

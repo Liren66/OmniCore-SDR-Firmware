@@ -9,10 +9,9 @@ OmniCore SDR 的板端固件与下载工具仓库。OmniCore SDR 是一块基于
 
 主机端驱动、命令行工具和 C API 在 [OmniCore-SDR-Host](https://github.com/Liren66/OmniCore-SDR-Host)（OCH）仓库。
 
-```text
- AD9361 ◀─LVDS─▶ Zynq-7020 PL（axi_ad9361 + CH32H417_IP 成帧/时间基准）◀─UHSIF 533 MB/s─▶ CH32H417 ◀─USB 3.0─▶ 主机
-                     PS（no-OS：AD9361 驱动、命令行）◀──── UART 3.125 MBd ────▶ CH32 USART1 ⇄ USB EP2
-```
+![OmniCore SDR 系统框图](docs/images/system-architecture.svg)
+
+各模块、时钟与接口的说明见 [docs/architecture.md](docs/architecture.md)。
 
 ## 功能
 

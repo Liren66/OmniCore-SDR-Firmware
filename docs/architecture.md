@@ -3,26 +3,9 @@
 OmniCore SDR 由三颗主要芯片组成：AD9361 射频收发器、Zynq-7020（`xc7z020clg400-2`）和 CH32H417 USB 3.0 桥。
 本仓库包含 Zynq 的 PL 逻辑、PS 裸机程序，以及 CH32H417 的桥接固件。
 
-```text
-                     +------------------------- Zynq-7020 --------------------------+
-+-----------+  LVDS  | PL                                                           |
-|  AD9361   |<======>| axi_ad9361 --adc/dac (l_clk)--> CH32H417_IP 1.3              |
-|           |  SPI   |                                  - CH32H417_Fsm (framing)    |   UHSIF 32-bit
-|  CLK_OUT  |------->| U10 -> ref_clk_in -------------> - oc_timekeeper (time base) |<===============+
-+-----^-----+ 40 MHz | Y7  -> pps_ext (J6 PPS_EXT) ---> - AXI-Lite regs (32)        |  133.33 MHz    |
-      |              |                                                              |                |
-+-----+-----+        | axi_uart16550 <-------------------------------------------+  |                |
-|  ADF4002  |<- J3   |                                                           |  |                |
-|  40 MHz   | 10 MHz | PS (Cortex-A9, no-OS): AD9361 driver, commands, events    |  |                |
-|  VCTCXO   |        +-----------------------------------------------------------+--+                |
-+-----------+                                          UART 3.125 MBd (G19/H18)  |                   |
-                                                                       +---------+-------------------+--+
-                                                                       | CH32H417 (V3F + V5F)           |
-                                                                       |  USART1 <-> EP2  UHSIF <-> EP1 |
-                                                                       +---------------+----------------+
-                                                                                       | USB 3.0 (1a86:5537)
-                                                                                 Host (OmniCore Host / OCH)
-```
+![OmniCore SDR 系统框图](images/system-architecture.svg)
+
+蓝色为 IQ 数据，绿色为控制命令，橙色为时钟与 PPS，灰色为配置总线。虚线的 PA4 调谐只在 PPS 驯服模式（`pps_input_en=1` 且 `clock_ref_source=0`）下驱动。
 
 ## 数据通路
 

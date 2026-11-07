@@ -10,18 +10,7 @@ export PATH="$XIL/Vivado/2018.3/bin:$XIL/SDK/2018.3/bin:$XIL/SDK/2018.3/gnu/aarc
 
 ## 1. 总流程
 
-```text
-CH32H417_IP 源码 ──(仿真 run_sim.sh)──▶ 重新打包 package_ip.tcl
-        │
-        ▼
-system.bd ──build_time_base_bitstream.tcl──▶ system_wrapper.bit + system_wrapper.hdf
-        │                                          │
-        │                          复制到 SDK 硬件平台，重新生成 BSP
-        ▼                                          ▼
-     FSBL.elf ─────────────┬──────────── OmniCore-SDR-no-OS.elf
-                           ▼
-                     bootgen → BOOT.bin ──▶ SD / QSPI，或 jtag_run.tcl 直接加载到 RAM
-```
+![构建流程](images/build-flow.svg)
 
 只改 SDK 代码时，从“编译 no-OS 应用”一步开始即可，不需要重新生成位流。
 
