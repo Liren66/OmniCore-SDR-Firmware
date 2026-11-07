@@ -2,10 +2,10 @@
 <Root MajorVersion="0" MinorVersion="36">
   <CompositeFile CompositeFileTopName="system" CanBeSetAsTop="true" CanDisplayChildGraph="true">
     <Description>Composite Fileset</Description>
-    <Generation Name="SYNTHESIS" State="GENERATED" Timestamp="1792847569"/>
-    <Generation Name="IMPLEMENTATION" State="GENERATED" Timestamp="1792847569"/>
-    <Generation Name="SIMULATION" State="GENERATED" Timestamp="1792847569"/>
-    <Generation Name="HW_HANDOFF" State="GENERATED" Timestamp="1792847569"/>
+    <Generation Name="SYNTHESIS" State="GENERATED" Timestamp="1793990149"/>
+    <Generation Name="IMPLEMENTATION" State="GENERATED" Timestamp="1793990149"/>
+    <Generation Name="SIMULATION" State="GENERATED" Timestamp="1793990149"/>
+    <Generation Name="HW_HANDOFF" State="GENERATED" Timestamp="1793990149"/>
     <FileCollection Name="SOURCES" Type="SOURCES">
       <File Name="ip\system_sys_ps7_0\system_sys_ps7_0.xci" Type="IP">
         <Instance HierarchyPath="sys_ps7"/>
@@ -40,6 +40,7 @@
         <UsedIn Val="SIMULATION"/>
       </File>
       <File Name="ip\system_axi_cpu_interconnect_0\system_axi_cpu_interconnect_0.xci" Type="IP">
+        <Instance HierarchyPath="axi_cpu_interconnect"/>
         <Properties IsEditable="false" IsVisible="false" Timestamp="1754493669" IsTrackable="true" IsStatusTracked="true"/>
         <Library Name="xil_defaultlib"/>
         <UsedIn Val="SYNTHESIS"/>
@@ -143,6 +144,7 @@
         <UsedIn Val="SIMULATION"/>
       </File>
       <File Name="ip\system_axi_hp1_interconnect_0\system_axi_hp1_interconnect_0.xci" Type="IP">
+        <Instance HierarchyPath="axi_hp1_interconnect"/>
         <Properties IsEditable="false" IsVisible="false" Timestamp="1754493669" IsTrackable="true" IsStatusTracked="true"/>
         <Library Name="xil_defaultlib"/>
         <UsedIn Val="SYNTHESIS"/>
@@ -150,6 +152,7 @@
         <UsedIn Val="SIMULATION"/>
       </File>
       <File Name="ip\system_axi_hp2_interconnect_0\system_axi_hp2_interconnect_0.xci" Type="IP">
+        <Instance HierarchyPath="axi_hp2_interconnect"/>
         <Properties IsEditable="false" IsVisible="false" Timestamp="1754493669" IsTrackable="true" IsStatusTracked="true"/>
         <Library Name="xil_defaultlib"/>
         <UsedIn Val="SYNTHESIS"/>

@@ -94,7 +94,7 @@ AD9361_InitParam default_init_param = {
     /* Reference Clock Control */
     .xo_disable_use_ext_refclk_enable = 0,
     .dcxo_coarse_and_fine_tune = {8, 5920},
-    .clk_output_mode_select = CLKOUT_DISABLE,
+    .clk_output_mode_select = BUFFERED_XTALN_DCXO, /* 40 MHz to FPGA U10: time base PPS */
     /* Gain Control */
     .gc_rx1_mode = 2,
     .gc_rx2_mode = 2,

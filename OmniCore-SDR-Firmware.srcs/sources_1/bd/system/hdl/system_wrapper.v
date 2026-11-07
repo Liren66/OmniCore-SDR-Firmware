@@ -1,7 +1,7 @@
 //Copyright 1986-2018 Xilinx, Inc. All Rights Reserved.
 //--------------------------------------------------------------------------------
 //Tool Version: Vivado v.2018.3 (win64) Build 2405991 Thu Dec  6 23:38:27 MST 2018
-//Date        : Sat Oct 24 21:12:43 2026
+//Date        : Sat Nov  7 02:35:44 2026
 //Host        : HZZ_LAP running 64-bit major release  (build 9200)
 //Command     : generate_target system_wrapper.bd
 //Design      : system_wrapper
@@ -10,7 +10,8 @@
 `timescale 1 ps / 1 ps
 
 module system_wrapper
-   (AD9361_RESET,
+   (AD9361_CLK_OUT,
+    AD9361_RESET,
     CH32H417_AE_n_0,
     CH32H417_AF_n_0,
     CH32H417_CLK_0,
@@ -70,6 +71,7 @@ module system_wrapper
     txnrx,
     up_enable,
     up_txnrx);
+  input AD9361_CLK_OUT;
   output [0:0]AD9361_RESET;
   output CH32H417_AE_n_0;
   output CH32H417_AF_n_0;
@@ -131,6 +133,7 @@ module system_wrapper
   input up_enable;
   input up_txnrx;
 
+  wire AD9361_CLK_OUT;
   wire [0:0]AD9361_RESET;
   wire CH32H417_AE_n_0;
   wire CH32H417_AF_n_0;
@@ -193,7 +196,8 @@ module system_wrapper
   wire up_txnrx;
 
   system system_i
-       (.AD9361_RESET(AD9361_RESET),
+       (.AD9361_CLK_OUT(AD9361_CLK_OUT),
+        .AD9361_RESET(AD9361_RESET),
         .CH32H417_AE_n_0(CH32H417_AE_n_0),
         .CH32H417_AF_n_0(CH32H417_AF_n_0),
         .CH32H417_CLK_0(CH32H417_CLK_0),

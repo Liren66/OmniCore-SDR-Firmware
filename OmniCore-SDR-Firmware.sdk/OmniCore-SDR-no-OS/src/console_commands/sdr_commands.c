@@ -1,5 +1,6 @@
 #include "sdr_commands.h"
 #include "sdr_iq_format.h"
+#include "sdr_time.h"
 #include "sdr_runtime.h"
 #include "sdr_fir.h"
 #include "sdr_clock.h"
@@ -160,6 +161,7 @@ void sdr_commands_help(void)
         "clock_ref_source 0=internal40M 1=external10M_disciplined40M (pending until CH32 confirms PA4 high-Z); D5=hardware_lock_detect, no CPU readback. adf4002_self_test! flashes D5 with charge pump high-Z.\n");
     console_print(
         "rx_lo_source/tx_lo_source 0=internal 1=external; external frequency is nominal, actual input must be 2x RF LO; signal presence unverified.\n");
+    sdr_time_help();
 }
 
 int sdr_commands_execute(const char *input)
@@ -182,6 +184,11 @@ int sdr_commands_execute(const char *input)
     }
     /* CH32 发来的 vcxo_ack 行：静默处理，不产生任何输出。 */
     result = sdr_vcxo_execute(line);
+    if (result) {
+        return result;
+    }
+    /* 64-bit time arguments do not fit the numeric command table. */
+    result = sdr_time_execute(line);
     if (result) {
         return result;
     }

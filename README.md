@@ -13,13 +13,15 @@ CH32H417 USB 3.0 双核桥接固件，以及 FT2232 JTAG 接口的 EEPROM 配置
 ## 下载与烧录
 
 从 [GitHub Releases](https://github.com/Liren66/OmniCore-SDR-Firmware/releases) 下载同一版本的镜像。
-当前版本为 [v2026.11.03](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.03)：
-CH32 桥接固件 **1.0.0** 起带版本号和 USB 升级 Bootloader，之后的 CH32 应用可用 OmniCore Host
-的 `och firmware update` 通过 USB 更新，不再需要 WCH-Link。
+当前版本为 [v2026.11.07](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07)：
+Zynq 固件改为**成帧 USB 传输与硬件时间戳**（FPGA `CH32H417_IP` 1.3、SDK `SDK_CMD_1.1_20261107_FRAMED`）。
+每个 16 KiB 块带 16 字节头和 64 位样点时间，支持外部/内部 PPS 对时、定时 RX、定时 TX 突发，
+原 16 KiB 递增起始头模式已删除，**需要 OmniCore Host 0.6.0 及以上**，详见 [docs/hw-timestamps.md](docs/hw-timestamps.md)。
+CH32 桥接固件仍为 **1.0.0**（带版本号和 USB 升级 Bootloader，可用 `och firmware update` 通过 USB 更新）。
 
 | 文件 | 对应器件 | 内容与使用方式 |
 |---|---|---|
-| `BOOT.bin` | Zynq-7020 | FSBL + FPGA 位流 + no-OS 应用。SD 启动时放在启动分区根目录，文件名保持 `BOOT.bin`；使用板上 Flash 启动时，通过 Xilinx SDK 的 Flash 编程流程写入。 |
+| `BOOT.bin` | Zynq-7020 | FSBL + FPGA 位流 + no-OS 应用（v2026.11.07 起为成帧传输，需 OmniCore Host 0.6.0+）。SD 启动时放在启动分区根目录，文件名保持 `BOOT.bin`；使用板上 Flash 启动时，通过 Xilinx SDK 的 Flash 编程流程写入。 |
 | `Merge.bin` | CH32H417 | 完整 CH32 镜像：V3F stage-0（`0x0`）、V5F 应用（`0x20000`，头部在 `0x3FF00`）、V5F Bootloader（`0x40000`），间隙填充 `0xFF`。首次安装或更新 Bootloader 时用 WCH-Link 烧录，起始地址 `0x08000000`。 |
 | `OmniCore-Bridge-<版本>.ocfw` | CH32H417 | 仅 V5F 应用的 USB 升级包（64 字节头 + 镜像，带 CRC）。设备已装 1.0.0 及以上固件时，运行 `och firmware update OmniCore-Bridge-<版本>.ocfw`（OmniCore Host 0.5.0+）。 |
 | `FIDI_EEPROM_Download_Tool.zip` | FT2232 JTAG 接口 | Windows EEPROM 配置工具及配套文件，解压后按[工具说明](FIDI_EEPROM_Download_Tool/README.md)使用。 |
@@ -81,7 +83,11 @@ EP3 IN 输出诊断信息。桥接固件、Bootloader 与 USB 升级协议详见
 OmniCore-SDR-Firmware.xpr          Vivado 工程
 OmniCore-SDR-Firmware.srcs/        block design（system.bd）、顶层 wrapper、约束
 ip_repo/adi/                     ADI hdl_2018_r2 IP（axi_ad9361、axi_dmac 等）
-ip_repo/user/                    自研 CH32H417_IP（UHSIF 接口）、BOARD_CTRL_AXI
+ip_repo/user/                    自研 CH32H417_IP 1.3（UHSIF 成帧传输、时间基准）、BOARD_CTRL_AXI
+  .../CH32H417_IP_1.0/sim/       IP 自检仿真（run_sim.sh，Vivado xsim）
+  .../CH32H417_IP_1.0/scripts/   IP 重新打包（package_ip.tcl）
+scripts/                         位流构建（升级 BD 中的 IP、导出 hdf）、JTAG 加载到 RAM
+docs/hw-timestamps.md            成帧格式、时间寄存器、SDK 命令与吞吐对比
 OmniCore-SDR-Firmware.sdk/
   system_wrapper_hw_platform_0/  硬件平台（hdf、bitstream、ps7_init）
   OmniCore-SDR-no-OS/             AD9361 驱动、SDK 命令协议和 bootimage/

@@ -1,11 +1,12 @@
 /* 鏈澘 RF 涓� USB 杩愯鐘舵�佹満銆傚懡浠ゅ瓧绗︿覆涓庡洖璋冭 sdr_commands.c銆�
  * 鍙湪涓诲惊鐜墽琛岋紱涓柇璐熻矗閿佸瓨浜嬩欢锛岃�楁椂鎭㈠鍜屾墦鍗板湪 service 涓鐞嗐��
  * OmniCore SDR command protocol 1.0, SDK 2026-10-26 (VCXO / PA4 tune modes).
- * Main-loop state machine. No MCU/FPGA changes. RX overflow recovery rearms
- * the existing 16 KiB preamble; never claim lost IQ has been restored.
+ * Main-loop state machine. Framed USB transport only (CH32H417_IP 1.3): RX
+ * overflow and TX underflow are reported with sample time by sdr_time.c.
  */
 #include "sdr_control.h"
 #include "sdr_iq_format.h"
+#include "sdr_time.h"
 #include "sdr_runtime.h"
 #include "sdr_fir.h"
 #include "sdr_correction.h"
@@ -35,13 +36,6 @@ extern int32_t ad9361_digital_check(struct ad9361_rf_phy *phy, int tx);
 
 #define RX_BITS (CH32H417_IP_RX_EN | CH32H417_IP_RX_DUAL | CH32H417_IP_RX_CH1)
 #define TX_BITS (CH32H417_IP_TX_EN | CH32H417_IP_TX_DUAL | CH32H417_IP_TX_CH1 | CH32H417_IP_TX_RUN)
-/* Match packaged rev8 Fsm_ctr: 1024 groups. Use a conservative prefill margin. */
-#define PREFILL_SINGLE 1350U
-#define PREFILL_DUAL 2700U
-/* IQ8 fills about 2046 raw groups from the first 16 KiB USB block. Waiting
- * for 2700 would deadlock: block two is held off until TX_RUN drains space.
- * 1536 retains margin above the hardware's 1024-group start threshold. */
-#define PREFILL_IQ8 1536U
 #define EVENT_CAPACITY 16U
 
 static CH32H417_IP bridge;
@@ -49,9 +43,6 @@ static CH32H417_Irq irq;
 SdrRuntimeState sdr_state;
 static uint32_t seen[8], counts[8], seq, dropped, last_error, last_status;
 static uint32_t outstanding;
-static unsigned rx_resync_pending, rx_resync_ready;
-static uint32_t rx_resync_stream, rx_resyncs, rx_resync_failures;
-static uint64_t rx_resync_retry_at;
 static uint64_t last_notice[8];
 static uint32_t notice_stream[8];
 static const char *fault_name[8] = {"rx_overflow", "rx_underflow", "tx_overflow", "tx_underflow",
@@ -81,7 +72,7 @@ static uint32_t config_bits(unsigned rm, unsigned tm, unsigned re, unsigned te, 
            (tm == 3   ? CH32H417_IP_TX_DUAL
             : tm == 2 ? CH32H417_IP_TX_CH1
                       : 0) |
-           (run ? CH32H417_IP_TX_RUN : 0) | sdr_iq_format_bits();
+           (run ? CH32H417_IP_TX_RUN : 0) | sdr_iq_format_bits() | sdr_time_mode_bits();
 }
 
 static int configure(uint32_t bits)
@@ -267,6 +258,7 @@ int sdr_control_init(void)
         return rc;
     }
     sdr_iq_format_init(&bridge);
+    sdr_time_init(&bridge);
     rc = CH32H417_IrqSetupStandalone(&irq, &bridge);
     if (rc) {
         sdr_state.bridge_ready = 0;
@@ -280,27 +272,6 @@ int sdr_control_init(void)
     (void)pps_monitor_init(irq.Gic, XPAR_AXI_AD9361_BASEADDR);
     sdr_pps_refresh();
     return 0;
-}
-
-/* Keep USB requests running. After the overflow latch can stay clear, toggle
- * only RX_EN. A 100 us quiet interval lets a previously admitted 4101-cycle
- * UHSIF read finish (31 us at 133.333 MHz). Its tail is invalid and belongs
- * BEFORE the new preamble. RX FIFO/packing phase and preamble reset together.
- * TX_EN, TX_RUN and both channel selections are copied from applied hardware.
- * No global reset, RF reinit, USB reset, or MCU control request is involved. */
-static int restart_rx_header(void)
-{
-    uint32_t bits;
-    int rc = CH32H417_IP_GetConfig(&bridge, &bits);
-    if (rc) {
-        return rc;
-    }
-    rc = CH32H417_IP_Configure(&bridge, bits & ~CH32H417_IP_RX_EN);
-    if (rc) {
-        return rc;
-    }
-    udelay(100);
-    return CH32H417_IP_Configure(&bridge, bits | CH32H417_IP_RX_EN);
 }
 
 static void enqueue(unsigned kind, unsigned recovered, uint32_t status)
@@ -336,13 +307,11 @@ static void enqueue(unsigned kind, unsigned recovered, uint32_t status)
 
 void sdr_control_service(void)
 {
-    unsigned k, before = irq.State;
+    unsigned k;
     uint32_t action, n;
     uint64_t now = CH32H417_IrqNowUs();
     sdr_pps_refresh();
-    if (rx_resync_pending && (!sdr_state.usb_rx || rx_resync_stream != sdr_state.rx_stream)) {
-        rx_resync_pending = rx_resync_ready = 0;
-    }
+    sdr_time_service();
     action = CH32H417_IrqService(&irq, now);
     for (k = 0; k < 8; ++k) {
         n = irq.Observed[k];
@@ -355,12 +324,7 @@ void sdr_control_service(void)
             counts[k] += n - seen[k];
             last_error = 1U << k;
             last_status = irq.LastObservedStatus;
-            if (k == 0) {
-                rx_resync_pending = 1;
-                rx_resync_stream = sdr_state.rx_stream;
-                rx_resync_ready = 0;
-            }
-            if ((k == 0 && !(outstanding & 1U)) || !last_notice[k] ||
+            if (!last_notice[k] ||
                 now - last_notice[k] >= 500000U ||
                 notice_stream[k] != (tx_fault[k] ? sdr_state.tx_stream : sdr_state.rx_stream)) {
                 outstanding |= 1U << k;
@@ -371,54 +335,29 @@ void sdr_control_service(void)
         }
         seen[k] = n;
     }
-    /* Do not restart repeatedly while the host is not draining RX. A verified
-     * RX clear is sufficient even if an independent TX fault remains active. */
-    if (rx_resync_pending && ((action & CH32H417_IRQ_CLEARED) ||
-                              (before == CH32_IRQ_VERIFY && irq.State == CH32_IRQ_BACKOFF &&
-                               !(irq.Snapshot0 & (0x53U | CH32H417_IP_CLEAR_BUSY))))) {
-        rx_resync_ready = 1;
-    }
     if (action & CH32H417_IRQ_CLEARED) {
         for (k = 0; k < 8; ++k) {
-            if ((outstanding & (1U << k)) && !(k == 0 && rx_resync_pending)) {
+            if (outstanding & (1U << k)) {
                 enqueue(k, 1, irq.Snapshot0);
                 outstanding &= ~(1U << k);
             }
         }
     }
-    if (rx_resync_pending && rx_resync_ready && now >= rx_resync_retry_at) {
-        CH32H417_IP_Status s;
-        int rc = restart_rx_header();
-        CH32H417_IP_GetStatus(&bridge, &s);
-        if (!rc) {
-            ++rx_resyncs;
-            rx_resync_pending = rx_resync_ready = 0;
-            enqueue(0, 3, s.Status0);
-            outstanding &= ~1U;
-        } else {
-            ++rx_resync_failures;
-            enqueue(0, 4, s.Status0);
-        }
-        rx_resync_retry_at = now + 500000U;
-    }
     /* One complete line, main context only. Coalescing bounds the UART load. */
     if (event_count) {
         Event *e = &events[event_read];
         console_print(
-            "EVT seq=%lu stream=%lu type=%s mask=%u src=fpga count=%lu lost=-1 action=%s status=0x%08lx header_bytes=%u\n",
+            "EVT seq=%lu stream=%lu type=%s mask=%u src=fpga count=%lu lost=-1 action=%s status=0x%08lx\n",
             (unsigned long)e->seq, (unsigned long)e->stream, fault_name[e->kind], e->mask,
             (unsigned long)e->count,
-            e->recovered == 4   ? "rx_restart_retry"
-            : e->recovered == 3 ? "rx_restarted"
-            : e->recovered == 2 ? "errors_cleared"
-            : e->recovered      ? "recovered"
-            : e->kind == 0      ? "waiting_rx_resync"
-                                : "clearing_continue",
-            (unsigned long)e->status, e->recovered == 3 ? 16384U : 0U);
+            e->recovered == 2 ? "errors_cleared"
+            : e->recovered    ? "recovered"
+                              : "clearing_continue",
+            (unsigned long)e->status);
         event_read = (event_read + 1) % EVENT_CAPACITY;
         --event_count;
     }
-    sdr_board_service(rx_resync_pending || irq.Pending || irq.State != CH32_IRQ_IDLE);
+    sdr_board_service(irq.Pending || irq.State != CH32_IRQ_IDLE);
 }
 
 int sdr_guard(const char *name)
@@ -486,7 +425,7 @@ void sdr_print_usb_status(void)
                   !!(s.Status0 & 256), !!(s.Status0 & CH32H417_IP_CFG_BUSY),
                   !!(s.Status0 & CH32H417_IP_CLEAR_BUSY));
     console_print(
-        "rx_ready=%u/%u tx_ready=%u/%u tx_started=%u rdne=%u wrnf=%u rx_groups=%u tx_main_fifo_groups=%u group_bytes=%u fifo_group_bits=96\n",
+        "rx_ready=%u/%u tx_ready=%u/%u tx_running=%u rdne=%u wrnf=%u rx_groups=%u tx_main_fifo_groups=%u group_bytes=%u fifo_group_bits=96\n",
         !!(s.Status0 & (1U << 16)), !!(s.Status0 & (1U << 18)), !!(s.Status0 & (1U << 17)),
         !!(s.Status0 & (1U << 19)), !!(s.Status0 & (1U << 11)), !!(s.Status0 & 512),
         !!(s.Status0 & 1024), (unsigned)s.RxGroups, (unsigned)s.TxGroups,
@@ -499,26 +438,28 @@ void sdr_print_usb_status(void)
         (unsigned long)(sdr_state.usb_tx ? t * ((s.AppliedConfig & CH32H417_IP_IQ8) ? 4 : (sdr_state.tx_mask == 3 ? 6 : 3)) : 0));
     sdr_iq_format_status();
     print_history();
-    console_print("rx_resync completed=%lu pending=%u failures=%lu header_bytes=16384\n",
-                  (unsigned long)rx_resyncs, rx_resync_pending, (unsigned long)rx_resync_failures);
 }
 
 void sdr_print_system_info(void)
 {
     console_print(
-        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.0_20261026_VCXO protocol=1.0 fpga=unknown channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n");
+        "system_info board=OmniCore_SDR chip=AD9361 firmware=SDK_CMD_1.1_20261107_FRAMED protocol=1.0 fpga=CH32H417_IP_0x%08lx channels_rx=2 channels_tx=2 sources=0:DDS,1:USB\n",
+        (unsigned long)CH32H417_IP_Version(&bridge));
     console_print(
-        "capabilities channel=1 tx_gate=1 usb=1 clock_chain=1 supported_fir_ids=0 fir_upload=1 clock_config=1 rx_correction=1 adf4002=1 ref_source=1 external_lo=1 rf_reinit=1 digital_self_test=1 events=1 overflow_policy=rx_restart_header_report clock_ref_source=adf4002_10MHz_discipline lock_readback=0 pps_monitor=%u pps_adjustment=1 vcxo=1\n",
+        "capabilities channel=1 tx_gate=1 usb=1 clock_chain=1 supported_fir_ids=0 fir_upload=1 clock_config=1 rx_correction=1 adf4002=1 ref_source=1 external_lo=1 rf_reinit=1 digital_self_test=1 events=1 overflow_policy=framed_gap_event clock_ref_source=adf4002_10MHz_discipline lock_readback=0 pps_monitor=%u pps_adjustment=1 vcxo=1\n",
         pps_monitor_available());
     console_print("iq_capabilities iq_format=1 iq8_2t2r=%u default_bits=12\n", sdr_iq_format_capable());
+    console_print("time_capabilities hw_time=%u framing=%u rx_timed=%u tx_timed=%u pps_time=%u tick=sample header_bytes=16 payload_bytes=16368 fpga_version=0x%08lx\n",
+                  sdr_time_capable(), sdr_time_capable(), sdr_time_capable(), sdr_time_capable(),
+                  sdr_time_capable(), (unsigned long)CH32H417_IP_Version(&bridge));
     console_print("rf_capabilities rssi=1 console_baud=%lu console_rx=%s\n",
                   (unsigned long)CONSOLE_BAUD_RATE, console_rx_irq_active() ? "irq" : "polled");
     console_print("board_capabilities board_rgb=%u fan_control=%u core_temp=1\n",
                   board_monitor_available(), board_monitor_available());
     if (sdr_iq_format_bits()) {
-        console_print("iq format=signed8_twos_complement valid_bits=8 container_bits=8 sample_bytes=2 order=I1,Q1,I2,Q2 rx_conversion=bits11_4 tx_conversion=append_4_zero_bits header_version=1 header_bytes=16384 header_pattern=00..FF_repeat64 header_on=rx_start_and_overflow_recovery\n");
+        console_print("iq format=signed8_twos_complement valid_bits=8 container_bits=8 sample_bytes=2 order=I1,Q1,I2,Q2 rx_conversion=bits11_4 tx_conversion=append_4_zero_bits transport=framed16k header_bytes=16 payload_bytes=16368\n");
     } else console_print(
-        "iq format=packed12_signed_twos_complement valid_bits=12 container_bits=12 sample_bytes=3 order=I1,Q1,I2,Q2 single=selected_channel byte_order=I[11:4],I[3:0]<<4|Q[11:8],Q[7:0] header_version=1 header_bytes=16384 header_pattern=00..FF_repeat64 header_on=rx_start_and_overflow_recovery\n");
+        "iq format=packed12_signed_twos_complement valid_bits=12 container_bits=12 sample_bytes=3 order=I1,Q1,I2,Q2 single=selected_channel byte_order=I[11:4],I[3:0]<<4|Q[11:8],Q[7:0] transport=framed16k header_bytes=16 payload_bytes=16368\n");
 }
 
 /* RSSI reporting is off after cold boot and must be enabled explicitly. */
@@ -603,6 +544,9 @@ int sdr_set_usb_data(unsigned re, unsigned te)
     if ((re || te) && sdr_iq_format_check_start()) {
         return -1;
     }
+    if ((re || te) && !sdr_time_capable()) {
+        return sdr_command_error("fpga_without_framed_transport load_CH32H417_IP_1.3", -1);
+    }
     if (re && !sdr_state.rx_mask) {
         return sdr_command_error("rx_channel_zero", -1);
     }
@@ -665,10 +609,8 @@ int sdr_set_tx_enabled(unsigned on)
     }
     if (sdr_state.tx_source) {
         CH32H417_IP_GetStatus(&bridge, &s);
-        if (!sdr_state.usb_tx || (s.Status0 & CH32H417_IP_TX_READY) != CH32H417_IP_TX_READY ||
-            s.TxGroups < (sdr_iq_format_bits() ? PREFILL_IQ8 :
-                           (sdr_state.tx_mask == 3 ? PREFILL_DUAL : PREFILL_SINGLE))) {
-            return sdr_command_error("usb_tx_not_prefilled no_deferred_start", -1);
+        if (!sdr_state.usb_tx || (s.Status0 & CH32H417_IP_TX_READY) != CH32H417_IP_TX_READY) {
+            return sdr_command_error("usb_tx_not_ready enable_usb_tx_first", -1);
         }
         /* While TX_EN=1 and TX_RUN=0 the bridge outputs zero on every lane.
          * Select all DMA lanes BEFORE RUN: sequential AXI data-select writes

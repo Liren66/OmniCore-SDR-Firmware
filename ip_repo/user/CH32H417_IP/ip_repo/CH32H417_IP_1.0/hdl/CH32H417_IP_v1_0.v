@@ -11,7 +11,8 @@
 
 		// Parameters of Axi Slave Bus Interface S00_AXI
 		parameter integer C_S00_AXI_DATA_WIDTH	= 32,
-		parameter integer C_S00_AXI_ADDR_WIDTH	= 4
+		parameter integer C_S00_AXI_ADDR_WIDTH	= 7,
+		parameter integer REF_HZ = 40000000
 	)
 	(
 		// Users to add ports here
@@ -64,6 +65,9 @@
         output wire [15:0]  dac_data_q0_out,
         output wire [15:0]  dac_data_i1_out,
         output wire [15:0]  dac_data_q1_out,
+        // Time base inputs: external PPS and AD9361 CLK_OUT (40 MHz reference)
+        input  wire         pps_ext,
+        input  wire         ref_clk_in,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -116,7 +120,8 @@
 // Instantiation of Axi Bus Interface S00_AXI
 	CH32H417_IP_v1_0_S00_AXI # ( 
 		.C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
-		.C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH)
+		.C_S_AXI_ADDR_WIDTH(C_S00_AXI_ADDR_WIDTH),
+		.REF_HZ(REF_HZ)
 	) CH32H417_IP_v1_0_S00_AXI_inst (
 		//User ports
 		.Interrupt_flag(Interrupt_flag),
@@ -156,6 +161,8 @@
 		.dac_data_q0_out(dac_data_q0_out),
 		.dac_data_i1_out(dac_data_i1_out),
 		.dac_data_q1_out(dac_data_q1_out),
+		.pps_ext(pps_ext),
+		.ref_clk_in(ref_clk_in),
 
 		//AXI ports
 		.S_AXI_ACLK(s00_axi_aclk),

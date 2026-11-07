@@ -264,3 +264,22 @@ set_bus_skew 5.000 -from [get_cells -hierarchical -filter {NAME =~ */CH32H417_Fs
 # have no board-level input/output delay constraints in this iteration.
 # They are not hidden with false paths. PS DDR/MIO remain owned by the PS IP.
 # Build reports and reproducible scripts are under timing_work_20261022/.
+
+# ----------------------------------------------------------------------
+# 2026-11-07 CH32H417_IP 1.2 time base.
+# AD9361 CLK_OUT (buffered 40 MHz XTALN reference, enabled by the SDK with
+# clk_output_mode_select=BUFFERED_XTALN_DCXO) -> U10 = IO_L12N_T1_MRCC_13
+# (AD9361_MIX.pdf page 1). Bank 13 keeps the existing LVCMOS25 assignments.
+# It drives only the internal 1 PPS divider; the N side of a clock-capable
+# pair has no dedicated BUFG route, hence CLOCK_DEDICATED_ROUTE FALSE.
+# ----------------------------------------------------------------------
+set_property PACKAGE_PIN U10 [get_ports AD9361_CLK_OUT]
+set_property IOSTANDARD LVCMOS25 [get_ports AD9361_CLK_OUT]
+create_clock -period 25.000 -name ad9361_ref_clk [get_ports AD9361_CLK_OUT]
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets AD9361_CLK_OUT_IBUF]
+set ref_domain [get_clocks ad9361_ref_clk]
+set_max_delay -datapath_only 10.000 -from $ref_domain -to $ad9361_domain
+set_max_delay -datapath_only 10.000 -from $ref_domain -to $ps_domain
+# oc_afifo distributed RAM: a word is written at least one write clock and
+# two read clocks (two-flop Gray pointer) before the reader can see it.
+set_max_delay -datapath_only 8.000 -from [get_cells -hierarchical -filter {NAME =~ */CH32H417_Fsm_inst/u_rx_tag/mem_reg* || NAME =~ */CH32H417_Fsm_inst/u_tx_tag/mem_reg* || NAME =~ */CH32H417_Fsm_inst/u_events/mem_reg*}]

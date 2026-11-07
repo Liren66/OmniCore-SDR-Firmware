@@ -57,3 +57,6 @@ OmniCore-SDR-Firmware.sdk/OmniCore-SDR-no-OS/bootimage/OmniCore-SDR-FSBL.bif
 
 # Release assets are published through GitHub Releases.
 /dist/
+
+# CH32H417_IP xsim scratch
+ip_repo/user/CH32H417_IP/ip_repo/CH32H417_IP_1.0/sim/xsim_work/
